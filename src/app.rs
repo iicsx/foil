@@ -27,15 +27,12 @@ impl fmt::Display for Mode {
 /// Application result type.
 pub type AppResult<T> = std::result::Result<T, Box<dyn error::Error>>;
 
-/// Application.
 #[derive(Debug)]
 pub struct App {
-    /// Is the application running?
     pub running: bool,
-
     pub mode: Mode,
-
     pub buffer_content: String,
+    pub command: Option<String>,
 }
 
 impl Default for App {
@@ -44,13 +41,19 @@ impl Default for App {
             running: true,
             mode: Mode::default(),
             buffer_content: String::from(""),
+            command: None,
         }
     }
 }
 
 impl App {
-    pub fn new() -> Self {
-        Self::default()
+    fn new(mode: Mode, buffer_content: String) -> Self {
+        Self {
+            running: true,
+            command: None,
+            mode,
+            buffer_content,
+        }
     }
 
     pub fn tick(&self) {}
@@ -72,5 +75,27 @@ impl App {
         };
 
         self.buffer_content = content
+    }
+
+    pub fn append_to_buffer(&mut self, content: &str) {
+        self.buffer_content += content
+    }
+
+    pub fn pop_character(&mut self) {
+        self.buffer_content.pop();
+    }
+
+    pub fn pop_word(&mut self) {
+        let trimmed = self.buffer_content.trim_end();
+
+        if let Some(last_space_index) = trimmed.rfind(' ') {
+            self.buffer_content.truncate(last_space_index);
+        } else {
+            self.buffer_content.clear();
+        }
+    }
+
+    pub fn append_linebreak(&mut self) {
+        self.buffer_content += "\n";
     }
 }

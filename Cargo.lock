@@ -161,7 +161,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "fs-man-alt"
+name = "fs-man"
 version = "0.1.0"
 dependencies = [
  "crossterm",

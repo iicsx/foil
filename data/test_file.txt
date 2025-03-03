@@ -5,3 +5,7 @@ The text is stored in a txt file.
 Now, I need to figure out how to read this text file and display the content on the screen.
 
 There is likely a library for this.
+
+That was simple enough.
+
+I also need a way to handle a cursor.
