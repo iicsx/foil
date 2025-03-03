@@ -1,5 +1,5 @@
 [package]
-name = "fs-man"
+name = "foil"
 version = "0.1.0"
 authors = ["pneumaea <maxinies00@gmail.com>"]
 license = "MIT"
