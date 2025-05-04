@@ -9,6 +9,7 @@ pub enum Mode {
     Visual,
     Insert,
     Command,
+    Pending,
 }
 
 impl fmt::Display for Mode {
@@ -18,6 +19,7 @@ impl fmt::Display for Mode {
             Self::Insert => "INSERT",
             Self::Command => "COMMAND",
             Self::Visual => "VISUAL",
+            Self::Pending => "PENDING",
         };
 
         write!(f, "{}", string)
