@@ -38,9 +38,12 @@ pub struct App<'a> {
     pub buffer_content: String,
     pub command: Option<String>,
     pub path: Option<PathHelper>,
+
     pub parent_pane: Option<Paragraph<'a>>,
     pub current_pane: Option<Paragraph<'a>>,
     pub child_pane: Option<Paragraph<'a>>,
+
+    pub cursor_position: (u16, u16),
 }
 
 impl Default for App<'_> {
@@ -54,6 +57,7 @@ impl Default for App<'_> {
             parent_pane: None,
             current_pane: None,
             child_pane: None,
+            cursor_position: (0, 0),
         }
     }
 }
@@ -69,6 +73,7 @@ impl App<'_> {
             parent_pane: None,
             current_pane: None,
             child_pane: None,
+            cursor_position: (0, 0),
         }
     }
 

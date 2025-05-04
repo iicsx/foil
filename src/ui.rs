@@ -2,6 +2,7 @@ use crate::app::{App, Mode};
 use crate::file_helper::PathHelper;
 use ratatui::{
     layout::{Constraint, Direction, Layout},
+    prelude::Position,
     style::{Color, Style},
     text::Text,
     widgets::{Block, Borders, Paragraph},
@@ -47,6 +48,13 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     frame.render_widget(body.parent, body_chunks[0]);
     frame.render_widget(body.current, body_chunks[1]);
     frame.render_widget(body.child, body_chunks[2]);
+
+    let (cursor_x, cursor_y) = app.cursor_position;
+    let position = Position {
+        x: body_chunks[1].x + 1 + cursor_x,
+        y: body_chunks[1].y + 1 + cursor_y,
+    };
+    frame.set_cursor_position(position);
 }
 
 fn get_header<'a>(block: &Block<'a>) -> Paragraph<'a> {
@@ -73,7 +81,7 @@ fn get_body<'a>(app: &'a App) -> BodyLayout {
         Some(ref path) => path.clone(),
         None => PathHelper::new("./"),
     };
-    let current_files = current_dir.get_dir_names_printable(false).unwrap_or(vec![]);
+    let current_files = current_dir.get_dir_names_printable(true).unwrap_or(vec![]);
 
     let parent_dir: PathHelper = match current_dir.get_parent() {
         Ok(path) => PathHelper::new(&path),
