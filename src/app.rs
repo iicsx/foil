@@ -1,3 +1,5 @@
+use crate::file_helper::PathHelper;
+use ratatui::widgets::Paragraph;
 use std::error;
 use std::fmt;
 use std::fs;
@@ -30,31 +32,43 @@ impl fmt::Display for Mode {
 pub type AppResult<T> = std::result::Result<T, Box<dyn error::Error>>;
 
 #[derive(Debug)]
-pub struct App {
+pub struct App<'a> {
     pub running: bool,
     pub mode: Mode,
     pub buffer_content: String,
     pub command: Option<String>,
+    pub path: Option<PathHelper>,
+    pub parent_pane: Option<Paragraph<'a>>,
+    pub current_pane: Option<Paragraph<'a>>,
+    pub child_pane: Option<Paragraph<'a>>,
 }
 
-impl Default for App {
+impl Default for App<'_> {
     fn default() -> Self {
         Self {
             running: true,
             mode: Mode::default(),
             buffer_content: String::from(""),
             command: None,
+            path: Some(PathHelper::new("./")),
+            parent_pane: None,
+            current_pane: None,
+            child_pane: None,
         }
     }
 }
 
-impl App {
-    fn new(mode: Mode, buffer_content: String) -> Self {
+impl App<'_> {
+    fn new(mode: Mode, buffer_content: String, path: &str) -> Self {
         Self {
             running: true,
             command: None,
             mode,
             buffer_content,
+            path: Some(PathHelper::new(path)),
+            parent_pane: None,
+            current_pane: None,
+            child_pane: None,
         }
     }
 
@@ -90,10 +104,13 @@ impl App {
     pub fn pop_word(&mut self) {
         let trimmed = self.buffer_content.trim_end();
 
-        if let Some(last_space_index) = trimmed.rfind(' ') {
-            self.buffer_content.truncate(last_space_index);
-        } else {
-            self.buffer_content.clear();
+        match trimmed.rfind(' ') {
+            Some(last_space_index) => {
+                self.buffer_content.truncate(last_space_index);
+            }
+            None => {
+                self.buffer_content.clear();
+            }
         }
     }
 

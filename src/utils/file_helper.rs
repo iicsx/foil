@@ -2,6 +2,7 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
+#[derive(Debug, Clone)]
 pub struct PathHelper {
     pub current_path: PathBuf,
 }
@@ -13,8 +14,14 @@ impl PathHelper {
         }
     }
 
+    pub fn from_path(path: PathHelper) -> Self {
+        PathHelper {
+            current_path: path.current_path,
+        }
+    }
+
     pub fn get_dir_names(&self) -> io::Result<Vec<fs::DirEntry>> {
-        let mut dir_names: Vec<fs::DirEntry> = vec![];
+        let mut dir_names: Vec<fs::DirEntry> = Vec::new();
 
         for entry in fs::read_dir(&self.current_path)? {
             let dir = entry?;
@@ -25,12 +32,25 @@ impl PathHelper {
         Ok(dir_names)
     }
 
-    pub fn get_dir_names_printable(&self) -> Result<Vec<String>, std::io::Error> {
+    pub fn get_path_str(&self) -> String {
+        match self.current_path.to_str() {
+            Some(path_str) => path_str.to_string(),
+            None => "".to_string(),
+        }
+    }
+
+    pub fn get_dir_names_printable(&self, trim_start: bool) -> Result<Vec<String>, std::io::Error> {
         let mut names = Vec::new();
 
         for name in self.get_dir_names()? {
             match name.path().into_os_string().into_string() {
-                Ok(pathname) => names.push(pathname),
+                Ok(mut pathname) => {
+                    if pathname.starts_with("./") && trim_start {
+                        pathname = pathname.trim_start_matches("./").to_string();
+                    }
+
+                    names.push(pathname);
+                }
                 Err(_) => {}
             }
         }
@@ -60,7 +80,13 @@ impl PathHelper {
         self.current_path = buf.clone();
 
         match buf.to_str() {
-            Some(path_str) => Ok(path_str.to_string()),
+            Some(path_str) => {
+                if path_str == "" {
+                    return Ok("..".to_string());
+                }
+
+                Ok(path_str.to_string())
+            }
             None => Err(()),
         }
     }
@@ -73,6 +99,17 @@ impl PathHelper {
 
         let full_path: String = path_str.to_string() + "/" + path;
         let new_path = Path::new(&full_path);
+
+        if !new_path.exists() {
+            return Err(());
+        }
+
+        self.current_path = new_path.to_path_buf();
+        Ok(())
+    }
+
+    pub fn set_path(&mut self, path: &str) -> Result<(), ()> {
+        let new_path = Path::new(path);
 
         if !new_path.exists() {
             return Err(());
