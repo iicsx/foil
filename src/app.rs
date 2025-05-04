@@ -1,4 +1,5 @@
 use crate::file_helper::PathHelper;
+use crate::utils::cursor::Cursor;
 use ratatui::widgets::Paragraph;
 use std::error;
 use std::fmt;
@@ -43,7 +44,7 @@ pub struct App<'a> {
     pub current_pane: Option<Paragraph<'a>>,
     pub child_pane: Option<Paragraph<'a>>,
 
-    pub cursor_position: (u16, u16),
+    pub cursor: Cursor,
 }
 
 impl Default for App<'_> {
@@ -57,7 +58,7 @@ impl Default for App<'_> {
             parent_pane: None,
             current_pane: None,
             child_pane: None,
-            cursor_position: (0, 0),
+            cursor: Cursor::default(),
         }
     }
 }
@@ -73,7 +74,7 @@ impl App<'_> {
             parent_pane: None,
             current_pane: None,
             child_pane: None,
-            cursor_position: (0, 0),
+            cursor: Cursor::default(),
         }
     }
 

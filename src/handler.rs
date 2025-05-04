@@ -22,8 +22,56 @@ fn handle_normal_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         KeyCode::Char(':') => {
             app.set_mode(Mode::Command);
         }
+        // movement
+        KeyCode::Char('j') => {
+            let y = match app.path {
+                Some(ref path) => path.get_file_count().unwrap_or(0),
+                None => 0,
+            };
+            let x: usize = match app.path {
+                Some(ref path) => path.get_line_length(app.cursor.y).unwrap_or(0), // get next line length
+                None => 0,
+            };
+
+            if app.cursor.x > x.try_into().unwrap_or(0) {
+                app.cursor.x = x.try_into().unwrap_or(0);
+            }
+
+            app.cursor.down(y.try_into().unwrap_or(0)); // TODO: fix this
+        }
+        KeyCode::Char('k') => {
+            let x: usize = match app.path {
+                Some(ref path) => {
+                    if app.cursor.y == 1 {
+                        return Ok(());
+                    }
+
+                    path.get_line_length(app.cursor.y - 2).unwrap_or(0)
+                }
+                None => 0,
+            };
+            if app.cursor.x > x.try_into().unwrap_or(0) {
+                app.cursor.x = x.try_into().unwrap_or(0);
+            }
+
+            app.cursor.up();
+        }
+        KeyCode::Char('h') => {
+            app.cursor.left();
+        }
         KeyCode::Char('l') => {
-            app.load_new_buffer("./data/test_file.txt");
+            let x = match app.path {
+                Some(ref path) => path.get_line_length(app.cursor.y - 1).unwrap_or(0),
+                None => 0,
+            };
+            app.cursor.right(x.try_into().unwrap_or(0)); // TODO: fix this
+        }
+        // more movement
+        KeyCode::Char('0') => {
+            app.cursor.reset_x();
+        }
+        KeyCode::Char('G') => {
+            app.cursor.reset_y();
         }
 
         _ => {}

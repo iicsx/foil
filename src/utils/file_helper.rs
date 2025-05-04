@@ -118,4 +118,34 @@ impl PathHelper {
         self.current_path = new_path.to_path_buf();
         Ok(())
     }
+
+    pub fn get_file_count(&self) -> Result<usize, std::io::Error> {
+        let dir_entries = self.get_dir_names()?;
+        let count = dir_entries.len();
+
+        Ok(count)
+    }
+
+    pub fn get_line_length(&self, y: u16) -> Result<usize, std::io::Error> {
+        let dir_entries = self.get_dir_names()?;
+        let count = dir_entries.len();
+
+        if y as usize > count {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "y is out of bounds",
+            ));
+        }
+
+        let entry = &dir_entries[y as usize];
+        let name = entry.file_name();
+
+        match name.into_string() {
+            Ok(name) => Ok(name.len()),
+            Err(_) => Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "Failed to convert OsString to String",
+            )),
+        }
+    }
 }

@@ -49,12 +49,15 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     frame.render_widget(body.current, body_chunks[1]);
     frame.render_widget(body.child, body_chunks[2]);
 
-    let (cursor_x, cursor_y) = app.cursor_position;
+    app.cursor.container = Some(body_chunks[1]);
+
     let position = Position {
-        x: body_chunks[1].x + 1 + cursor_x,
-        y: body_chunks[1].y + 1 + cursor_y,
+        x: body_chunks[1].x + app.cursor.x,
+        y: body_chunks[1].y + app.cursor.y,
     };
     frame.set_cursor_position(position);
+
+    app.cursor.update_frame(frame);
 }
 
 fn get_header<'a>(block: &Block<'a>) -> Paragraph<'a> {
