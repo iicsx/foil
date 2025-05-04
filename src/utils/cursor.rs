@@ -55,9 +55,7 @@ impl Cursor {
             Some(container) => {
                 let new_y = container.y - 1 + self.y + 1;
 
-                if new_y >= container.y && (constraint > 0 && new_y < constraint) {
-                    self.y += 1;
-                }
+                self.y += 1;
             }
             None => self.y += 1,
         };

@@ -30,14 +30,16 @@ fn handle_normal_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
             };
             let x: usize = match app.path {
                 Some(ref path) => path.get_line_length(app.cursor.y).unwrap_or(0), // get next line length
-                None => 0,
+                None => 1,
             };
 
             if app.cursor.x > x.try_into().unwrap_or(0) {
-                app.cursor.x = x.try_into().unwrap_or(0);
+                app.cursor.x = x.try_into().unwrap_or(0).max(1);
             }
 
-            app.cursor.down(y.try_into().unwrap_or(0)); // TODO: fix this
+            if x > 0 {
+                app.cursor.down(y.try_into().unwrap_or(0)); // TODO: fix this
+            }
         }
         KeyCode::Char('k') => {
             let x: usize = match app.path {
