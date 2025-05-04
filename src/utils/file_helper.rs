@@ -130,7 +130,7 @@ impl PathHelper {
         let dir_entries = self.get_dir_names()?;
         let count = dir_entries.len();
 
-        if y as usize > count {
+        if y as usize >= count {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 "y is out of bounds",
