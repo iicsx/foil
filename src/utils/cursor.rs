@@ -13,7 +13,7 @@ impl Cursor {
         Self {
             container: Some(container),
             // defaults to 1 because of borders, this might need a change
-            // since we also need to account for these borders whenever we calculate anything
+            // since we also need to account for these borders whenever we calculate literally anything
             x: 1,
             y: 1,
         }
@@ -29,6 +29,14 @@ impl Cursor {
 
     pub fn move_to(&mut self, x: u16, y: u16) {
         self.x = x;
+        self.y = y;
+    }
+
+    pub fn set_x(&mut self, x: u16) {
+        self.x = x;
+    }
+
+    pub fn set_y(&mut self, y: u16) {
         self.y = y;
     }
 
@@ -50,11 +58,9 @@ impl Cursor {
         };
     }
 
-    pub fn down(&mut self, constraint: u16) {
+    pub fn down(&mut self) {
         match self.container {
-            Some(container) => {
-                let new_y = container.y - 1 + self.y + 1;
-
+            Some(_) => {
                 self.y += 1;
             }
             None => self.y += 1,
@@ -80,7 +86,11 @@ impl Cursor {
                 let new_x = container.x - 1 + self.x + 1;
                 let within_bounds = (self.x + 1) <= constraint;
 
-                if new_x >= container.x && (constraint > 0 && within_bounds) {
+                if constraint > 0 && !within_bounds {
+                    return;
+                }
+
+                if new_x >= container.x {
                     self.x += 1;
                 }
             }
@@ -105,6 +115,14 @@ impl Cursor {
             frame.set_cursor_position(position);
         } else {
             panic!("Cursor container is not set");
+        }
+    }
+
+    pub fn move_word(&mut self, line: &str, new_x: usize) {
+        if new_x > line.len() {
+            self.x = line.len() as u16;
+        } else {
+            self.x = new_x as u16;
         }
     }
 }

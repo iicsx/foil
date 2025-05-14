@@ -1,15 +1,16 @@
 use crate::file_helper::PathHelper;
 use crate::utils::cursor::Cursor;
+use crate::utils::input_buffer::InputBuffer;
 use ratatui::widgets::Paragraph;
-use std::error;
-use std::fmt;
-use std::fs;
+use std::{error, fmt, result::Result};
 
 #[derive(Debug, Default)]
 pub enum Mode {
     #[default]
     Normal,
     Visual,
+    VisualBlock,
+    VisualLine,
     Insert,
     Command,
     Pending,
@@ -22,6 +23,8 @@ impl fmt::Display for Mode {
             Self::Insert => "INSERT",
             Self::Command => "COMMAND",
             Self::Visual => "VISUAL",
+            Self::VisualBlock => "V-BLOCK",
+            Self::VisualLine => "V-LINE",
             Self::Pending => "PENDING",
         };
 
@@ -30,7 +33,7 @@ impl fmt::Display for Mode {
 }
 
 /// Application result type.
-pub type AppResult<T> = std::result::Result<T, Box<dyn error::Error>>;
+pub type AppResult<T> = Result<T, Box<dyn error::Error>>;
 
 #[derive(Debug)]
 pub struct App<'a> {
@@ -45,6 +48,7 @@ pub struct App<'a> {
     pub child_pane: Option<Paragraph<'a>>,
 
     pub cursor: Cursor,
+    pub command_buffer: InputBuffer,
 }
 
 impl Default for App<'_> {
@@ -55,14 +59,18 @@ impl Default for App<'_> {
             buffer_content: String::from(""),
             command: None,
             path: Some(PathHelper::new("./")),
+
             parent_pane: None,
             current_pane: None,
             child_pane: None,
+
             cursor: Cursor::default(),
+            command_buffer: InputBuffer::new(),
         }
     }
 }
 
+#[allow(dead_code)]
 impl App<'_> {
     fn new(mode: Mode, buffer_content: String, path: &str) -> Self {
         Self {
@@ -71,10 +79,13 @@ impl App<'_> {
             mode,
             buffer_content,
             path: Some(PathHelper::new(path)),
+
             parent_pane: None,
             current_pane: None,
             child_pane: None,
+
             cursor: Cursor::default(),
+            command_buffer: InputBuffer::new(),
         }
     }
 
@@ -86,25 +97,6 @@ impl App<'_> {
 
     pub fn set_mode(&mut self, mode: Mode) {
         self.mode = mode
-    }
-
-    pub fn load_new_buffer(&mut self, path: &str) {
-        let file_buffer = fs::read_to_string(String::from(path));
-
-        let content = match file_buffer {
-            Ok(content) => content,
-            Err(_) => panic!("[FIXME] File Buffer could not be read"),
-        };
-
-        self.buffer_content = content
-    }
-
-    pub fn append_to_buffer(&mut self, content: &str) {
-        self.buffer_content += content
-    }
-
-    pub fn pop_character(&mut self) {
-        self.buffer_content.pop();
     }
 
     pub fn pop_word(&mut self) {
@@ -122,5 +114,185 @@ impl App<'_> {
 
     pub fn append_linebreak(&mut self) {
         self.buffer_content += "\n";
+    }
+
+    pub fn insert_at(&mut self, x: u16, y: u16, content: &str) {
+        let mut lines: Vec<String> = self.buffer_content.lines().map(String::from).collect();
+
+        let line = &mut lines[y as usize];
+
+        if x as usize > line.len() {
+            return;
+        }
+
+        line.insert_str(x as usize, content);
+
+        self.buffer_content = lines.join("\n");
+    }
+
+    pub fn delete_at(&mut self, x: u16, y: u16) {
+        let mut lines: Vec<String> = self.buffer_content.lines().map(String::from).collect();
+
+        if y as usize >= lines.len() {
+            return;
+        }
+
+        let line = &mut lines[y as usize];
+
+        if x as usize >= line.len() {
+            return;
+        }
+
+        line.remove(x as usize);
+
+        self.buffer_content = lines.join("\n");
+    }
+
+    pub fn delete_line_full(&mut self, y: u16) {
+        let mut lines: Vec<&str> = self.buffer_content.lines().collect();
+
+        if y as usize >= lines.len() {
+            return;
+        }
+
+        lines.remove(y as usize);
+
+        self.buffer_content = lines.join("\n");
+    }
+
+    pub fn delete_line(&mut self, y: u16) {
+        let mut lines: Vec<String> = self
+            .buffer_content
+            .lines()
+            .map(|line| line.to_string())
+            .collect();
+
+        if y as usize >= lines.len() {
+            return;
+        }
+
+        lines[y as usize].clear();
+
+        self.buffer_content = lines.join("\n");
+    }
+
+    pub fn move_max_x(&mut self) {
+        const NEUTRAL_ELEMENT: u16 = 1;
+
+        let new_x = self
+            .get_line_length(self.cursor.y - 1)
+            .unwrap_or(NEUTRAL_ELEMENT as usize)
+            .try_into()
+            .unwrap_or(NEUTRAL_ELEMENT);
+
+        self.cursor.x = new_x;
+    }
+
+    pub fn move_max_y(&mut self) {
+        const NEUTRAL_ELEMENT: u16 = 1;
+
+        let new_y = self.get_line_count().try_into().unwrap_or(NEUTRAL_ELEMENT);
+
+        self.cursor.y = new_y;
+    }
+
+    pub fn get_end_x(&self, s: &String, start: usize, inclusive: bool) -> usize {
+        let current_char = s.chars().nth(start).unwrap_or('.');
+        if !current_char.is_alphanumeric() {
+            return start + 1;
+        }
+
+        let mut end = start;
+        while end < s.len() && s.chars().nth(end).unwrap_or(' ').is_alphanumeric() {
+            if s.chars().nth(end).unwrap() == ' ' {
+                break;
+            }
+            end += 1;
+        }
+
+        if inclusive {
+            end += 1;
+        }
+
+        end
+    }
+
+    pub fn get_start_x(&self, s: &String, start: usize) -> usize {
+        if start <= 1 {
+            return 1;
+        }
+        let mut end = start - 1;
+
+        while end > 1 && s.chars().nth(end - 1).unwrap_or(' ').is_alphanumeric() {
+            end -= 1;
+        }
+
+        end
+    }
+
+    pub fn delete_word(&mut self, x: u16, y: u16) {
+        let mut lines: Vec<String> = self
+            .buffer_content
+            .lines()
+            .map(|line| String::from(line))
+            .collect();
+
+        if y as usize >= lines.len() {
+            return;
+        }
+
+        let line = &mut lines[y as usize];
+
+        if x as usize >= line.len() || line.is_empty() {
+            return;
+        }
+
+        let end = self.get_end_x(line, x as usize, false);
+
+        line.replace_range(x as usize..end, "");
+
+        self.buffer_content = lines.join("\n");
+    }
+
+    pub fn merge_lines(&self, y1: usize, y2: usize) -> Result<String, std::io::Error> {
+        let lines: Vec<&str> = self.buffer_content.lines().collect();
+
+        if y1 >= lines.len() || y2 >= lines.len() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Line out of bounds",
+            ));
+        }
+
+        let line1 = lines[y1];
+        let line2 = lines[y2];
+
+        let mut new_buffer_content = self.buffer_content.clone();
+        // [FIXME]
+        new_buffer_content.replace_range(
+            new_buffer_content.find(line1).unwrap()..new_buffer_content.find(line2).unwrap(),
+            &line1, // idk why but this works
+        );
+
+        Ok(new_buffer_content)
+    }
+
+    pub fn get_line_count(&self) -> usize {
+        self.buffer_content.lines().count()
+    }
+
+    pub fn get_line_length(&self, y: u16) -> Result<usize, std::io::Error> {
+        let lines: Vec<&str> = self.buffer_content.lines().collect();
+
+        if y as usize >= lines.len() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Line out of bounds",
+            ));
+        }
+
+        let line = lines[y as usize];
+
+        Ok(line.chars().count())
     }
 }

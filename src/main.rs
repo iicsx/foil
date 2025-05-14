@@ -1,5 +1,6 @@
 use std::io;
 
+use crossterm::{cursor::SetCursorStyle, execute};
 use ratatui::{backend::CrosstermBackend, Terminal};
 
 use crate::{
@@ -26,6 +27,8 @@ async fn main() -> AppResult<()> {
     let events = EventHandler::new(250);
     let mut tui = Tui::new(terminal, events);
     tui.init()?;
+
+    let _ = execute!(std::io::stdout(), SetCursorStyle::SteadyBlock);
 
     while app.running {
         tui.draw(&mut app)?;

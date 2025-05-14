@@ -1,11 +1,12 @@
 use crate::app::{App, Mode};
 use crate::file_helper::PathHelper;
+use crate::utils::system;
 use ratatui::{
     layout::{Constraint, Direction, Layout},
     prelude::Position,
     style::{Color, Style},
-    text::Text,
-    widgets::{Block, Borders, Paragraph},
+    text::{Line, Span, Text},
+    widgets::{Block, BorderType, Borders, Paragraph},
     Frame,
 };
 
@@ -19,7 +20,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3),
+            Constraint::Length(1),
             Constraint::Min(1),
             Constraint::Length(3),
         ])
@@ -27,9 +28,12 @@ pub fn render(app: &mut App, frame: &mut Frame) {
 
     let bordered_block = Block::default()
         .style(Style::default())
-        .borders(Borders::ALL);
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded);
 
-    let header = get_header(&bordered_block);
+    let default_block = Block::default().style(Style::default());
+
+    let header = get_header(&default_block);
     frame.render_widget(header, chunks[0]);
 
     let footer = get_footer(&bordered_block, &app);
@@ -44,7 +48,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
         ])
         .split(chunks[1]);
 
-    let body: BodyLayout = get_body(&app);
+    let body: BodyLayout = get_body(app);
     frame.render_widget(body.parent, body_chunks[0]);
     frame.render_widget(body.current, body_chunks[1]);
     frame.render_widget(body.child, body_chunks[2]);
@@ -61,11 +65,15 @@ pub fn render(app: &mut App, frame: &mut Frame) {
 }
 
 fn get_header<'a>(block: &Block<'a>) -> Paragraph<'a> {
-    Paragraph::new(Text::styled(
-        "File Manager",
-        Style::default().fg(Color::Green),
-    ))
-    .block(block.clone())
+    let spans = Line::from(vec![
+        Span::styled(get_hostname(), Style::default().fg(Color::Yellow)),
+        Span::styled(
+            format!(" {}", get_dirname()),
+            Style::default().fg(Color::Blue),
+        ),
+    ]);
+
+    Paragraph::new(spans).block(block.clone())
 }
 
 fn get_footer<'a>(block: &Block<'a>, app: &App) -> Paragraph<'a> {
@@ -79,12 +87,15 @@ fn get_footer<'a>(block: &Block<'a>, app: &App) -> Paragraph<'a> {
     .block(block.clone())
 }
 
-fn get_body<'a>(app: &'a App) -> BodyLayout {
+fn get_body<'a>(app: &mut App) -> BodyLayout {
     let mut current_dir: PathHelper = match app.path {
         Some(ref path) => path.clone(),
         None => PathHelper::new("./"),
     };
     let current_files = current_dir.get_dir_names_printable(true).unwrap_or(vec![]);
+    if app.buffer_content.is_empty() {
+        app.buffer_content = current_files.join("\n");
+    }
 
     let parent_dir: PathHelper = match current_dir.get_parent() {
         Ok(path) => PathHelper::new(&path),
@@ -96,23 +107,24 @@ fn get_body<'a>(app: &'a App) -> BodyLayout {
         .block(
             Block::default()
                 .title("Parent Directory")
-                .borders(Borders::ALL),
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded),
         )
         .style(Style::default());
 
-    let middle = Paragraph::new(current_files.join("\n"))
-        .block(
-            Block::default()
-                .title("Current Directory")
-                .borders(Borders::ALL),
-        )
-        .style(Style::default().fg(Color::White).bg(Color::Black));
+    let middle = Paragraph::new(app.buffer_content.clone()).block(
+        Block::default()
+            .title("Current Directory")
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded),
+    );
 
     let right = Paragraph::new("")
         .block(
             Block::default()
                 .title("Child Directory")
-                .borders(Borders::ALL),
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded),
         )
         .style(Style::default());
 
@@ -121,4 +133,17 @@ fn get_body<'a>(app: &'a App) -> BodyLayout {
         current: middle,
         child: right,
     }
+}
+
+pub fn get_hostname() -> String {
+    let name = system::whoami();
+    let host = system::hostname();
+
+    let prompt = format!("{}@{}", name.trim(), host.trim());
+
+    prompt
+}
+
+pub fn get_dirname() -> String {
+    system::pwd()
 }

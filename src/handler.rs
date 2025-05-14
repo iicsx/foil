@@ -1,5 +1,7 @@
 use crate::app::{App, AppResult, Mode};
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crate::utils::motion_handler::handler as motion_handler;
+use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::{cursor::SetCursorStyle, execute};
 use std::process::Command;
 
 /// Handles the key events and updates the state of [`App`].
@@ -8,6 +10,9 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         Mode::Normal => handle_normal_mode(key_event, app),
         Mode::Insert => handle_insert_mode(key_event, app),
         Mode::Command => handle_command_mode(key_event, app),
+        Mode::Visual => handle_visual_mode(key_event, app),
+        Mode::VisualBlock => handle_visual_block_mode(key_event, app),
+        Mode::VisualLine => handle_visual_line_mode(key_event, app),
         _ => Ok(()),
     };
 
@@ -15,80 +20,149 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
 }
 
 fn handle_normal_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
-    match key_event.code {
-        KeyCode::Char('i') => {
-            app.set_mode(Mode::Insert);
-        }
-        KeyCode::Char(':') => {
-            app.set_mode(Mode::Command);
-        }
-        // movement
-        KeyCode::Char('j') => {
-            let y = match app.path {
-                Some(ref path) => path.get_file_count().unwrap_or(0),
-                None => 0,
-            };
-            let x: usize = match app.path {
-                Some(ref path) => path.get_line_length(app.cursor.y).unwrap_or(0), // get next line length
-                None => 1,
-            };
+    if key_event.code == KeyCode::Esc {
+        app.command_buffer.clear();
+        return Ok(());
+    }
 
-            if app.cursor.x > x.try_into().unwrap_or(0) {
-                app.cursor.x = x.try_into().unwrap_or(0).max(1);
+    let buffer_empty = app.command_buffer.buffer.is_empty();
+    let is_valid_init = app
+        .command_buffer
+        .is_initializer(&key_event.code.to_string());
+
+    if (buffer_empty && is_valid_init) || (!buffer_empty) {
+        if key_event.code.to_string().len() != 1 {
+            return Ok(());
+        }
+
+        app.command_buffer.add(&key_event.code.to_string());
+
+        if app.command_buffer.valid().unwrap_or(false) {
+            let command = app.command_buffer.buffer.clone();
+
+            // TODO consider moving this into a separate "execute" call
+            match command.as_str() {
+                "dd" => motion_handler::dd(app),
+                "cc" => motion_handler::cc(app),
+                "dw" => motion_handler::dw(app),
+                "cw" => motion_handler::cw(app),
+                "gg" => app.cursor.reset_y(),
+                _ => {}
             }
 
-            if x > 0 {
-                app.cursor.down(y.try_into().unwrap_or(0)); // TODO: fix this
-            }
+            app.command_buffer.clear();
         }
-        KeyCode::Char('k') => {
-            let x: usize = match app.path {
-                Some(ref path) => {
-                    if app.cursor.y == 1 {
-                        return Ok(());
+    } else {
+        match key_event.code {
+            // mode changes
+            KeyCode::Char('i') => motion_handler::i(app),
+            KeyCode::Char('I') => motion_handler::I(app),
+            KeyCode::Char('a') => motion_handler::a(app),
+            KeyCode::Char('A') => motion_handler::A(app),
+            KeyCode::Char('o') => motion_handler::o(app),
+            KeyCode::Char('O') => motion_handler::O(app),
+            KeyCode::Char(':') => app.set_mode(Mode::Command),
+            KeyCode::Char('v') => app.set_mode(Mode::Visual),
+            KeyCode::Char('V') => app.set_mode(Mode::VisualLine),
+            KeyCode::Char('s') => motion_handler::s(app),
+            // basic movement
+            KeyCode::Down => motion_handler::j(app)?,
+            KeyCode::Char('j') => motion_handler::j(app)?,
+            KeyCode::Up => motion_handler::k(app)?,
+            KeyCode::Char('k') => motion_handler::k(app)?,
+            KeyCode::Left => app.cursor.left(),
+            KeyCode::Char('h') => app.cursor.left(),
+            KeyCode::Right => motion_handler::l(app),
+            KeyCode::Char('l') => motion_handler::l(app),
+            // more movement
+            KeyCode::Char('0') => app.cursor.reset_x(),
+            KeyCode::Char('$') => motion_handler::dollar_sign(app),
+            KeyCode::Char('G') => motion_handler::G(app),
+            KeyCode::Char('w') => motion_handler::w(app),
+            KeyCode::Char('b') => motion_handler::b(app),
+            // other
+            KeyCode::Char('x') => motion_handler::x(app),
+
+            _ => {
+                if key_event.code.to_string().len() != 1 {
+                    return Ok(());
+                }
+
+                app.command_buffer.add(&key_event.code.to_string());
+
+                if app.command_buffer.valid().unwrap_or(false) {
+                    let command = app.command_buffer.buffer.clone();
+
+                    // TODO consider moving this into a separate "execute" call
+                    match command.as_str() {
+                        "dd" => motion_handler::dd(app),
+                        "cc" => motion_handler::cc(app),
+                        "dw" => motion_handler::dw(app),
+                        "cw" => motion_handler::cw(app),
+                        "cj" => motion_handler::cj(app),
+                        "ck" => motion_handler::ck(app),
+                        "dj" => motion_handler::dj(app),
+                        "dk" => motion_handler::dk(app),
+                        "gg" => motion_handler::gg(app),
+                        _ => {}
                     }
 
-                    path.get_line_length(app.cursor.y - 2).unwrap_or(0)
+                    app.command_buffer.clear();
                 }
-                None => 0,
-            };
-            if app.cursor.x > x.try_into().unwrap_or(0) {
-                app.cursor.x = x.try_into().unwrap_or(0);
             }
-
-            app.cursor.up();
-        }
-        KeyCode::Char('h') => {
-            app.cursor.left();
-        }
-        KeyCode::Char('l') => {
-            let x = match app.path {
-                Some(ref path) => path.get_line_length(app.cursor.y - 1).unwrap_or(0),
-                None => 0,
-            };
-            app.cursor.right(x.try_into().unwrap_or(0)); // TODO: fix this
-        }
-        // more movement
-        KeyCode::Char('0') => {
-            app.cursor.reset_x();
-        }
-        KeyCode::Char('G') => {
-            app.cursor.reset_y();
-        }
-
-        _ => {}
-    };
+        };
+    }
 
     Ok(())
 }
 
 fn handle_insert_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
     match key_event.code {
-        KeyCode::Esc => app.set_mode(Mode::Normal),
-        KeyCode::Char(' ') => app.append_to_buffer(" "),
-        KeyCode::Backspace => app.pop_character(),
-        KeyCode::Enter => app.append_linebreak(),
-        _ => app.append_to_buffer(&key_event.code.to_string()),
+        KeyCode::Esc => {
+            app.cursor.left();
+            app.set_mode(Mode::Normal);
+            let _ = execute!(std::io::stdout(), SetCursorStyle::SteadyBlock);
+        }
+        KeyCode::Char(' ') => {
+            app.insert_at(app.cursor.x - 1, app.cursor.y - 1, " ");
+            app.cursor.right(0);
+        }
+        KeyCode::Backspace => {
+            if app.cursor.x <= 1 && app.cursor.y <= 1 {
+                return Ok(());
+            }
+            if app.cursor.x <= 1 {
+                let max_x = app.get_line_length(app.cursor.y - 2).unwrap_or(0);
+
+                app.buffer_content = app.merge_lines(
+                    app.cursor.y.try_into().unwrap_or(0) - 2,
+                    app.cursor.y.try_into().unwrap_or(0) - 1,
+                )?;
+                app.cursor.up();
+                app.cursor.x = max_x.try_into().unwrap_or(0) + 1;
+            } else {
+                app.delete_at(app.cursor.x - 2, app.cursor.y - 1);
+                app.cursor.left();
+            }
+        }
+        KeyCode::Enter => {
+            app.insert_at(app.cursor.x - 1, app.cursor.y - 1, "\n");
+            app.cursor.down();
+            app.cursor.reset_x();
+        }
+        KeyCode::Left => app.cursor.left(),
+        KeyCode::Right => motion_handler::l(app),
+        KeyCode::Up => motion_handler::k(app)?,
+        KeyCode::Down => motion_handler::j(app)?,
+
+        _ => {
+            app.insert_at(
+                app.cursor.x - 1,
+                app.cursor.y - 1,
+                &key_event.code.to_string(),
+            );
+            app.cursor.right(0);
+        }
     };
 
     Ok(())
@@ -96,12 +170,25 @@ fn handle_insert_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
 fn handle_command_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
     match key_event.code {
         KeyCode::Enter => {
-            if app.command.clone().unwrap_or("".to_string()) == "q" {
-                app.running = false;
-            }
-            match Command::new(app.command.clone().unwrap_or(String::from(""))).spawn() {
-                Ok(_) => app.buffer_content += "success",
-                Err(_) => app.buffer_content += "Some error",
+            let command = app.command.clone().unwrap_or(String::from(""));
+            match command.as_str() {
+                "q" => {
+                    app.running = false;
+                    return Ok(());
+                }
+                // TODO implement save
+                "w" => {
+                    app.running = false;
+                    return Ok(());
+                }
+                "wq" => {
+                    app.running = false;
+                    return Ok(());
+                }
+                _ => match Command::new(command).spawn() {
+                    Ok(_) => app.buffer_content += "success",
+                    Err(_) => app.buffer_content += "Some error",
+                },
             }
 
             app.command = None;
@@ -127,6 +214,45 @@ fn handle_command_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
     }
 
     match key_event.code {
+        _ => {}
+    };
+
+    Ok(())
+}
+
+fn handle_visual_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
+    match key_event.code {
+        KeyCode::Esc => {
+            app.cursor.left();
+            app.set_mode(Mode::Normal);
+            let _ = execute!(std::io::stdout(), SetCursorStyle::SteadyBlock);
+        }
+        _ => {}
+    };
+
+    Ok(())
+}
+
+fn handle_visual_block_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
+    match key_event.code {
+        KeyCode::Esc => {
+            app.cursor.left();
+            app.set_mode(Mode::Normal);
+            let _ = execute!(std::io::stdout(), SetCursorStyle::SteadyBlock);
+        }
+        _ => {}
+    };
+
+    Ok(())
+}
+
+fn handle_visual_line_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
+    match key_event.code {
+        KeyCode::Esc => {
+            app.cursor.left();
+            app.set_mode(Mode::Normal);
+            let _ = execute!(std::io::stdout(), SetCursorStyle::SteadyBlock);
+        }
         _ => {}
     };
 
