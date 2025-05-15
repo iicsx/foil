@@ -299,7 +299,7 @@ impl App<'_> {
     pub fn get_hovered_filename(&self) -> String {
         let lines: Vec<&str> = self.buffer_content.lines().collect();
 
-        if self.cursor.y as usize >= lines.len() {
+        if self.cursor.y as usize > lines.len() {
             return String::new();
         }
 
