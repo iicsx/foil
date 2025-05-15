@@ -58,15 +58,15 @@ impl PathHelper {
         Ok(names)
     }
 
-    pub fn get_file_name(&self) -> Result<&str, ()> {
+    pub fn get_file_name(&self) -> Option<&str> {
         let n = match self.current_path.file_name() {
             Some(n) => n,
-            None => return Err(()),
+            None => return None,
         };
 
         match n.to_str() {
-            Some(res) => Ok(res),
-            None => Err(()),
+            Some(res) => Some(res),
+            None => None,
         }
     }
 

@@ -66,3 +66,61 @@ pub fn pwd() -> String {
         }
     };
 }
+
+pub fn get_file_permissions() -> String {
+    let output = std::process::Command::new("ls")
+        .arg("-l")
+        .arg(".")
+        .output()
+        .expect("Failed to execute command");
+
+    let permissions = String::from_utf8_lossy(&output.stdout);
+
+    permissions.trim().to_string()
+}
+
+pub fn get_file_permission(file_name: String) -> String {
+    let output = std::process::Command::new("ls")
+        .arg("-l")
+        .arg(file_name)
+        .output()
+        .expect("Failed to execute command");
+
+    let permissions = String::from_utf8_lossy(&output.stdout);
+
+    let mut res = String::new();
+    for line in permissions.lines() {
+        if line.trim().starts_with("total") {
+            continue;
+        }
+
+        let string: Vec<&str> = line.split(" ").collect();
+
+        res = string[0].trim().to_string()
+    }
+
+    res
+}
+
+pub fn get_file_size(filename: String) -> String {
+    let output = std::process::Command::new("du")
+        .arg("-sh")
+        .arg(filename)
+        .output()
+        .expect("Failed to execute command");
+
+    let size = String::from_utf8_lossy(&output.stdout);
+
+    let mut res = String::new();
+    for line in size.lines() {
+        if line.trim().starts_with("total") {
+            continue;
+        }
+
+        let string: Vec<&str> = line.split("\t").collect();
+
+        res = string[0].trim().to_string()
+    }
+
+    res
+}

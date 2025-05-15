@@ -5,7 +5,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout},
     prelude::Position,
     style::{Color, Style},
-    text::{Line, Span, Text},
+    text::{Line, Span},
     widgets::{Block, BorderType, Borders, Paragraph},
     Frame,
 };
@@ -77,14 +77,22 @@ fn get_header<'a>(block: &Block<'a>) -> Paragraph<'a> {
 }
 
 fn get_footer<'a>(block: &Block<'a>, app: &App) -> Paragraph<'a> {
-    Paragraph::new(Text::styled(
-        match app.mode {
-            Mode::Command => app.command.clone().unwrap_or("".to_string()),
-            _ => app.mode.to_string(),
-        },
-        Style::default().fg(Color::Green),
-    ))
-    .block(block.clone())
+    let spans: Line = match app.mode {
+        Mode::Command => Line::from(Span::raw(app.command.clone().unwrap_or("".to_string()))),
+        _ => Line::from(vec![
+            Span::styled(format!("{}", app.mode), Style::default().fg(Color::White)),
+            Span::styled(
+                format!(" {}        ", get_current_file_permissions(app)),
+                Style::default().fg(Color::Magenta),
+            ),
+            Span::styled(
+                format!(" {}        ", get_current_file_size(app)),
+                Style::default().fg(Color::Green),
+            ),
+        ]),
+    };
+
+    Paragraph::new(spans).block(block.clone())
 }
 
 fn get_body<'a>(app: &mut App) -> BodyLayout {
@@ -146,4 +154,20 @@ pub fn get_hostname() -> String {
 
 pub fn get_dirname() -> String {
     system::pwd()
+}
+
+pub fn get_current_file(app: &App) -> String {
+    app.get_hovered_filename()
+}
+
+pub fn get_current_file_permissions(app: &App) -> String {
+    let filename = app.get_hovered_filename();
+
+    system::get_file_permission(filename)
+}
+
+pub fn get_current_file_size(app: &App) -> String {
+    let filename = app.get_hovered_filename();
+
+    system::get_file_size(filename)
 }

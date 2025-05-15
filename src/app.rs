@@ -197,7 +197,7 @@ impl App<'_> {
     }
 
     pub fn get_end_x(&self, s: &String, start: usize, inclusive: bool) -> usize {
-        let current_char = s.chars().nth(start).unwrap_or('.');
+        let current_char = s.chars().nth(start.max(1) - 1).unwrap_or('.');
         if !current_char.is_alphanumeric() {
             return start + 1;
         }
@@ -294,5 +294,24 @@ impl App<'_> {
         let line = lines[y as usize];
 
         Ok(line.chars().count())
+    }
+
+    pub fn get_hovered_filename(&self) -> String {
+        let lines: Vec<&str> = self.buffer_content.lines().collect();
+
+        if self.cursor.y as usize >= lines.len() {
+            return String::new();
+        }
+
+        let y = (self.cursor.y.max(1) - 1) as usize;
+        let line = lines[y as usize];
+
+        if self.cursor.x as usize > line.chars().count() {
+            return String::new();
+        }
+
+        let filename = &line[0 as usize..];
+
+        filename.to_string()
     }
 }
