@@ -225,22 +225,6 @@ impl App<'_> {
         self.cursor.y = new_y;
     }
 
-    pub fn reset_cursor_x(&mut self) {
-        let line_length = self
-            .get_line_length(self.cursor.y - 1)
-            .unwrap_or(1)
-            .try_into()
-            .unwrap_or(1);
-
-        let current_x = self.cursor.x;
-
-        if current_x > line_length {
-            self.cursor.x = line_length;
-        } else {
-            self.cursor.x = 1;
-        }
-    }
-
     pub fn get_end_x(&self, s: &String, start: usize, inclusive: bool) -> usize {
         let current_char = s.chars().nth(start.max(1) - 1).unwrap_or('.');
         if !current_char.is_alphanumeric() {
@@ -397,6 +381,11 @@ impl App<'_> {
             end -= 1;
         }
 
-        end + 1 // exclusive
+        // make match exclusive
+        if !s.chars().nth(end).unwrap_or(' ').is_alphanumeric() {
+            end += 1;
+        }
+
+        end
     }
 }

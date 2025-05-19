@@ -249,10 +249,7 @@ pub mod handler {
 
         let x = app.cursor.x as usize;
         let start_index = app.seek_special_character_backward(&line.to_string(), x);
-        let end_index = app.seek_special_character_forward(
-            &line.to_string(),
-            app.get_line_length(app.cursor.y - 1).unwrap_or(0) as usize,
-        );
+        let end_index = app.seek_special_character_forward(&line.to_string(), x);
 
         app.delete_range(
             start_index.try_into().unwrap_or(0),
@@ -260,7 +257,7 @@ pub mod handler {
             end_index - start_index,
         );
 
-        app.reset_cursor_x();
+        app.cursor.x = start_index.try_into().unwrap_or(1);
         app.cursor.right(0);
     }
 
