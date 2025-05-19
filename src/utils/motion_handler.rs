@@ -265,4 +265,8 @@ pub mod handler {
         diw(app);
         let _ = app.set_mode(Mode::Insert);
     }
+
+    pub fn u(app: &mut App) {
+        app.undo();
+    }
 }

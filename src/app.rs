@@ -1,6 +1,5 @@
 use crate::file_helper::PathHelper;
-use crate::utils::cursor::Cursor;
-use crate::utils::input_buffer::InputBuffer;
+use crate::utils::{cursor::Cursor, input_buffer::InputBuffer, undo_stack::UndoStack};
 use crossterm::{cursor::SetCursorStyle, execute};
 use ratatui::widgets::Paragraph;
 use std::{error, fmt, result::Result};
@@ -41,6 +40,7 @@ pub struct App<'a> {
     pub running: bool,
     pub mode: Mode,
     pub buffer_content: String,
+    pub undo_stack: UndoStack,
     pub command: Option<String>,
     pub path: Option<PathHelper>,
 
@@ -58,6 +58,7 @@ impl Default for App<'_> {
             running: true,
             mode: Mode::default(),
             buffer_content: String::from(""),
+            undo_stack: UndoStack::new(),
             command: None,
             path: Some(PathHelper::new("./")),
 
@@ -74,11 +75,15 @@ impl Default for App<'_> {
 #[allow(dead_code)]
 impl App<'_> {
     fn new(mode: Mode, buffer_content: String, path: &str) -> Self {
+        let mut undo_stack = UndoStack::new();
+        undo_stack.push(buffer_content.clone());
+
         Self {
             running: true,
             command: None,
             mode,
-            buffer_content,
+            buffer_content: buffer_content.clone(),
+            undo_stack: undo_stack,
             path: Some(PathHelper::new(path)),
 
             parent_pane: None,
@@ -387,5 +392,19 @@ impl App<'_> {
         }
 
         end
+    }
+
+    // both of the following hurt me to re-implement here but it's necessary
+    // to update the buffer content
+    pub fn undo(&mut self) {
+        if let Some(undo) = self.undo_stack.undo() {
+            self.buffer_content = undo;
+        }
+    }
+
+    pub fn redo(&mut self) {
+        if let Some(redo) = self.undo_stack.redo() {
+            self.buffer_content = redo;
+        }
     }
 }

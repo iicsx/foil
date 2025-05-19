@@ -64,6 +64,7 @@ fn handle_normal_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         KeyCode::Char('b') => motion_handler::b(app),
         // other
         KeyCode::Char('x') => motion_handler::x(app),
+        KeyCode::Char('u') => motion_handler::u(app),
 
         _ => handle_compound_inputs(key_event, app)?,
     };
@@ -236,6 +237,8 @@ fn handle_compound_inputs(
 
     let _ = app.set_mode(Mode::Pending)?;
 
+    let captured_buffer_content = app.buffer_content.clone();
+
     app.command_buffer.add(&key_event.code.to_string());
 
     if app.command_buffer.valid().unwrap_or(false) {
@@ -262,6 +265,10 @@ fn handle_compound_inputs(
         }
 
         app.command_buffer.clear();
+    }
+
+    if app.buffer_content != captured_buffer_content {
+        app.undo_stack.push(captured_buffer_content);
     }
 
     Ok(())
