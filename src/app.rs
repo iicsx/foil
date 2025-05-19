@@ -143,6 +143,22 @@ impl App<'_> {
 
     pub fn delete_at(&mut self, x: u16, y: u16) {
         let mut lines: Vec<String> = self.buffer_content.lines().map(String::from).collect();
+        if y as usize >= lines.len() {
+            return;
+        }
+
+        let line = &mut lines[y as usize];
+        if x as usize >= line.len() {
+            return;
+        }
+
+        line.remove(x as usize);
+
+        self.buffer_content = lines.join("\n");
+    }
+
+    pub fn delete_range(&mut self, x: u16, y: u16, length: usize) {
+        let mut lines: Vec<String> = self.buffer_content.lines().map(String::from).collect();
 
         if y as usize >= lines.len() {
             return;
@@ -154,7 +170,9 @@ impl App<'_> {
             return;
         }
 
-        line.remove(x as usize);
+        let end = (x + length as u16).min(line.len() as u16);
+
+        line.replace_range(x as usize..end as usize, "");
 
         self.buffer_content = lines.join("\n");
     }
@@ -205,6 +223,22 @@ impl App<'_> {
         let new_y = self.get_line_count().try_into().unwrap_or(NEUTRAL_ELEMENT);
 
         self.cursor.y = new_y;
+    }
+
+    pub fn reset_cursor_x(&mut self) {
+        let line_length = self
+            .get_line_length(self.cursor.y - 1)
+            .unwrap_or(1)
+            .try_into()
+            .unwrap_or(1);
+
+        let current_x = self.cursor.x;
+
+        if current_x > line_length {
+            self.cursor.x = line_length;
+        } else {
+            self.cursor.x = 1;
+        }
     }
 
     pub fn get_end_x(&self, s: &String, start: usize, inclusive: bool) -> usize {
@@ -324,5 +358,45 @@ impl App<'_> {
         let filename = &line[0 as usize..];
 
         filename.to_string()
+    }
+
+    pub fn seek_whitespace_forward(&self, s: &String, start: usize) -> usize {
+        let mut end = start;
+
+        while end < s.len() && s.chars().nth(end).unwrap_or(' ').is_whitespace() {
+            end += 1;
+        }
+
+        end
+    }
+
+    pub fn seek_whitespace_backward(&self, s: &String, start: usize) -> usize {
+        let mut end = start;
+
+        while end > 0 && s.chars().nth(end).unwrap_or(' ').is_whitespace() {
+            end -= 1;
+        }
+
+        end
+    }
+
+    pub fn seek_special_character_forward(&self, s: &String, start: usize) -> usize {
+        let mut end = start;
+
+        while end < s.len() && s.chars().nth(end).unwrap_or(' ').is_alphanumeric() {
+            end += 1;
+        }
+
+        end
+    }
+
+    pub fn seek_special_character_backward(&self, s: &String, start: usize) -> usize {
+        let mut end = start;
+
+        while end > 0 && s.chars().nth(end).unwrap_or(' ').is_alphanumeric() {
+            end -= 1;
+        }
+
+        end + 1 // exclusive
     }
 }

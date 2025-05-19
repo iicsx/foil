@@ -65,33 +65,7 @@ fn handle_normal_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         // other
         KeyCode::Char('x') => motion_handler::x(app),
 
-        _ => {
-            if key_event.code.to_string().len() != 1 {
-                return Ok(());
-            }
-
-            app.command_buffer.add(&key_event.code.to_string());
-
-            if app.command_buffer.valid().unwrap_or(false) {
-                let command = app.command_buffer.buffer.clone();
-
-                // TODO consider moving this into a separate "execute" call
-                match command.as_str() {
-                    "dd" => motion_handler::dd(app),
-                    "cc" => motion_handler::cc(app),
-                    "dw" => motion_handler::dw(app),
-                    "cw" => motion_handler::cw(app),
-                    "cj" => motion_handler::cj(app),
-                    "ck" => motion_handler::ck(app),
-                    "dj" => motion_handler::dj(app),
-                    "dk" => motion_handler::dk(app),
-                    "gg" => motion_handler::gg(app),
-                    _ => {}
-                }
-
-                app.command_buffer.clear();
-            }
-        }
+        _ => handle_compound_inputs(key_event, app)?,
     };
 
     Ok(())
@@ -148,6 +122,7 @@ fn handle_insert_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
 
     Ok(())
 }
+
 fn handle_command_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
     match key_event.code {
         KeyCode::Enter => {
@@ -272,11 +247,17 @@ fn handle_compound_inputs(
 
         // TODO consider moving this into a separate "execute" call
         match command.as_str() {
+            "gg" => app.cursor.reset_y(),
+            "cj" => motion_handler::cj(app),
+            "ck" => motion_handler::ck(app),
+            "dj" => motion_handler::dj(app),
+            "dk" => motion_handler::dk(app),
             "dd" => motion_handler::dd(app),
             "cc" => motion_handler::cc(app),
             "dw" => motion_handler::dw(app),
             "cw" => motion_handler::cw(app),
-            "gg" => app.cursor.reset_y(),
+            "ciw" => motion_handler::ciw(app),
+            "diw" => motion_handler::diw(app),
             _ => {}
         }
 

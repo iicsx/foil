@@ -239,4 +239,33 @@ pub mod handler {
         app.cursor.up();
         dd(app);
     }
+
+    pub fn diw(app: &mut App) {
+        let line = app
+            .buffer_content
+            .lines()
+            .nth(app.cursor.y as usize - 1)
+            .unwrap_or("");
+
+        let x = app.cursor.x as usize;
+        let start_index = app.seek_special_character_backward(&line.to_string(), x);
+        let end_index = app.seek_special_character_forward(
+            &line.to_string(),
+            app.get_line_length(app.cursor.y - 1).unwrap_or(0) as usize,
+        );
+
+        app.delete_range(
+            start_index.try_into().unwrap_or(0),
+            app.cursor.y - 1,
+            end_index - start_index,
+        );
+
+        app.reset_cursor_x();
+        app.cursor.right(0);
+    }
+
+    pub fn ciw(app: &mut App) {
+        diw(app);
+        let _ = app.set_mode(Mode::Insert);
+    }
 }
