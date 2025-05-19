@@ -31,7 +31,7 @@ impl UndoStack {
     }
 
     pub fn redo(&mut self) -> Option<String> {
-        if self.current_index == 0 {
+        if self.current_index == self.stack.len() - 1 {
             return None; // already at most recent change
         }
 
