@@ -1,3 +1,4 @@
+pub mod buffer_storage;
 pub mod cursor;
 pub mod file_helper;
 pub mod input_buffer;

@@ -1,7 +1,6 @@
 pub mod handler {
     use crate::app::App;
     use crate::app::Mode;
-    use crossterm::{cursor::SetCursorStyle, execute};
 
     pub fn dd(app: &mut App) {
         if app.cursor.y == app.buffer_content.lines().count().try_into().unwrap_or(0) {
@@ -29,8 +28,7 @@ pub mod handler {
     pub fn cc(app: &mut App) {
         app.delete_line(app.cursor.y - 1);
         app.cursor.reset_x();
-        app.set_mode(Mode::Insert);
-        let _ = execute!(std::io::stdout(), SetCursorStyle::BlinkingBar);
+        let _ = app.set_mode(Mode::Insert);
     }
 
     pub fn dw(app: &mut App) {
@@ -49,16 +47,14 @@ pub mod handler {
 
     pub fn cw(app: &mut App) {
         app.delete_word(app.cursor.x - 1, app.cursor.y - 1);
-        app.set_mode(Mode::Insert);
-        let _ = execute!(std::io::stdout(), SetCursorStyle::BlinkingBar);
+        let _ = app.set_mode(Mode::Insert);
     }
 
     pub fn i(app: &mut App) {
         if app.cursor.x == 0 {
             app.cursor.x += 1;
         }
-        app.set_mode(Mode::Insert);
-        let _ = execute!(std::io::stdout(), SetCursorStyle::BlinkingBar);
+        let _ = app.set_mode(Mode::Insert);
     }
 
     #[allow(non_snake_case)]
@@ -71,8 +67,7 @@ pub mod handler {
         if app.cursor.x == 0 {
             app.cursor.x += 1;
         }
-        app.set_mode(Mode::Insert);
-        let _ = execute!(std::io::stdout(), SetCursorStyle::BlinkingBar);
+        let _ = app.set_mode(Mode::Insert);
 
         app.cursor.right(0);
     }
@@ -88,8 +83,7 @@ pub mod handler {
         app.insert_at(app.cursor.x, app.cursor.y - 1, "\n "); // whitespace is needed to actually start a new line, do not remove!!!
         app.cursor.down();
         app.cursor.reset_x();
-        app.set_mode(Mode::Insert);
-        let _ = execute!(std::io::stdout(), SetCursorStyle::BlinkingBar);
+        let _ = app.set_mode(Mode::Insert);
     }
 
     #[allow(non_snake_case)]
@@ -101,8 +95,7 @@ pub mod handler {
             app.cursor.reset_x();
         }
 
-        app.set_mode(Mode::Insert);
-        let _ = execute!(std::io::stdout(), SetCursorStyle::BlinkingBar);
+        let _ = app.set_mode(Mode::Insert);
     }
 
     pub fn j(app: &mut App) -> Result<(), std::io::Error> {
@@ -222,8 +215,7 @@ pub mod handler {
 
     pub fn s(app: &mut App) {
         x(app);
-        app.set_mode(Mode::Insert);
-        let _ = execute!(std::io::stdout(), SetCursorStyle::BlinkingBar);
+        let _ = app.set_mode(Mode::Insert);
     }
 
     pub fn cj(app: &mut App) {

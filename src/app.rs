@@ -1,10 +1,11 @@
 use crate::file_helper::PathHelper;
 use crate::utils::cursor::Cursor;
 use crate::utils::input_buffer::InputBuffer;
+use crossterm::{cursor::SetCursorStyle, execute};
 use ratatui::widgets::Paragraph;
 use std::{error, fmt, result::Result};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub enum Mode {
     #[default]
     Normal,
@@ -95,8 +96,18 @@ impl App<'_> {
         self.running = false;
     }
 
-    pub fn set_mode(&mut self, mode: Mode) {
-        self.mode = mode
+    pub fn set_mode(&mut self, mode: Mode) -> Result<(), Box<dyn std::error::Error>> {
+        self.mode = mode.clone();
+
+        match mode {
+            Mode::Normal => execute!(std::io::stdout(), SetCursorStyle::SteadyBlock)?,
+            Mode::Visual => execute!(std::io::stdout(), SetCursorStyle::SteadyBlock)?,
+            Mode::Pending => execute!(std::io::stdout(), SetCursorStyle::SteadyUnderScore)?,
+            Mode::Insert => execute!(std::io::stdout(), SetCursorStyle::BlinkingBar)?,
+            _ => execute!(std::io::stdout(), SetCursorStyle::SteadyBlock)?,
+        };
+
+        Ok(())
     }
 
     pub fn pop_word(&mut self) {
