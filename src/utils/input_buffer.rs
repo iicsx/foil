@@ -18,7 +18,7 @@ impl InputBuffer {
             ],
             buffer: String::new(),
             pattern: String::from(
-                r#"^(([cd][ai][wWeEbB\(\)\[\]\{\}"'`])|([cd]f.)|(g[gfd])|([cd][GwWeEbBhjkl\{\}$0])|([cd](gg|ga))|(\d+[hjklwWbBeE])|(\d+[cd][wWeEbB])|cc|dd|([cd][fFtT].))$"#,
+                r#"^(([cdy][ai][wWeEbB\(\)\[\]\{\}"'`])|([cd]f.)|(g[gfd])|([cd][GwWeEbBhjkl\{\}$0])|([cd](gg|ga))|(\d+[hjklwWbBeE])|(\d+[cd][wWeEbB])|yy|cc|dd|([cd][fFtT].))$"#,
             ),
         }
     }

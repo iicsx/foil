@@ -1,6 +1,7 @@
 pub mod handler {
     use crate::app::App;
     use crate::app::Mode;
+    use crate::utils::yank_buffer::YankType;
 
     pub fn dd(app: &mut App) {
         if app.cursor.y == app.buffer_content.lines().count().try_into().unwrap_or(0) {
@@ -268,5 +269,84 @@ pub mod handler {
 
     pub fn u(app: &mut App) {
         app.undo();
+    }
+
+    pub fn yy(app: &mut App) {
+        let line = app
+            .buffer_content
+            .lines()
+            .nth(app.cursor.y as usize - 1)
+            .unwrap_or("");
+
+        app.yank_buffer.set_content(line.to_string());
+        app.yank_buffer.set_yank_type(YankType::Line);
+    }
+
+    pub fn yiw(app: &mut App) {
+        let line = app
+            .buffer_content
+            .lines()
+            .nth(app.cursor.y as usize - 1)
+            .unwrap_or("");
+
+        let x = app.cursor.x as usize;
+        let start_index = app.seek_special_character_backward(&line.to_string(), x);
+        let end_index = app.seek_special_character_forward(&line.to_string(), x);
+
+        let content = &line[start_index..end_index];
+        app.yank_buffer.set_content(content.to_string());
+        app.yank_buffer.set_yank_type(YankType::Word);
+
+        app.cursor.x = start_index.try_into().unwrap_or(1).max(1);
+    }
+
+    pub fn p(app: &mut App) {
+        let buffer_content = app.buffer_content.clone();
+
+        let content = app.yank_buffer.content.clone();
+        let yank_type = app.yank_buffer.get_yank_type();
+
+        match yank_type {
+            YankType::Line => {
+                app.move_max_x();
+                app.insert_at(app.cursor.x, app.cursor.y - 1, &format!("\n{}", &content));
+                app.cursor.down();
+
+                app.cursor.reset_x();
+            }
+            YankType::Char | YankType::Word => {
+                app.insert_at(app.cursor.x - 1, app.cursor.y - 1, &content);
+                app.cursor.x += content.len() as u16;
+            }
+        }
+
+        app.undo_stack.push(buffer_content);
+    }
+
+    #[allow(non_snake_case)]
+    pub fn P(app: &mut App) {
+        let buffer_content = app.buffer_content.clone();
+
+        let content = app.yank_buffer.content.clone();
+        let yank_type = app.yank_buffer.get_yank_type();
+
+        match yank_type {
+            YankType::Line => {
+                app.cursor.reset_x();
+                app.insert_at(
+                    app.cursor.x - 1,
+                    app.cursor.y - 1,
+                    &format!("{}\n", &content),
+                );
+
+                app.cursor.reset_x();
+            }
+            YankType::Char | YankType::Word => {
+                app.insert_at(app.cursor.x - 1, app.cursor.y - 1, &content);
+                app.cursor.x += content.len() as u16;
+            }
+        }
+
+        app.undo_stack.push(buffer_content);
     }
 }

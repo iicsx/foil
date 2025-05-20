@@ -1,5 +1,10 @@
 use crate::file_helper::PathHelper;
-use crate::utils::{cursor::Cursor, input_buffer::InputBuffer, undo_stack::UndoStack};
+use crate::utils::{
+    cursor::Cursor,
+    input_buffer::InputBuffer,
+    undo_stack::UndoStack,
+    yank_buffer::{YankBuffer, YankType},
+};
 use crossterm::{cursor::SetCursorStyle, execute};
 use ratatui::widgets::Paragraph;
 use std::{error, fmt, result::Result};
@@ -40,6 +45,7 @@ pub struct App<'a> {
     pub running: bool,
     pub mode: Mode,
     pub buffer_content: String,
+    pub yank_buffer: YankBuffer,
     pub undo_stack: UndoStack,
     pub command: Option<String>,
     pub path: Option<PathHelper>,
@@ -58,6 +64,7 @@ impl Default for App<'_> {
             running: true,
             mode: Mode::default(),
             buffer_content: String::from(""),
+            yank_buffer: YankBuffer::new(),
             undo_stack: UndoStack::new(),
             command: None,
             path: Some(PathHelper::new("./")),
@@ -83,6 +90,7 @@ impl App<'_> {
             command: None,
             mode,
             buffer_content: buffer_content.clone(),
+            yank_buffer: YankBuffer::new(),
             undo_stack: undo_stack,
             path: Some(PathHelper::new(path)),
 

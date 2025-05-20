@@ -65,6 +65,8 @@ fn handle_normal_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         // other
         KeyCode::Char('x') => motion_handler::x(app),
         KeyCode::Char('u') => motion_handler::u(app),
+        KeyCode::Char('p') => motion_handler::p(app),
+        KeyCode::Char('P') => motion_handler::P(app),
 
         _ => handle_compound_inputs(key_event, app)?,
     };
@@ -259,6 +261,8 @@ fn handle_compound_inputs(
             "cc" => motion_handler::cc(app),
             "dw" => motion_handler::dw(app),
             "cw" => motion_handler::cw(app),
+            "yy" => motion_handler::yy(app),
+            "yiw" => motion_handler::yiw(app),
             "ciw" => motion_handler::ciw(app),
             "diw" => motion_handler::diw(app),
             _ => {}
