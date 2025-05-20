@@ -76,7 +76,7 @@ impl Default for App<'_> {
 impl App<'_> {
     fn new(mode: Mode, buffer_content: String, path: &str) -> Self {
         let mut undo_stack = UndoStack::new();
-        undo_stack.push(buffer_content.clone());
+        undo_stack.push(buffer_content.clone(), 0, 0);
 
         Self {
             running: true,
@@ -399,6 +399,10 @@ impl App<'_> {
     pub fn undo(&mut self) {
         if let Some(undo) = self.undo_stack.undo() {
             self.buffer_content = undo;
+            if let Some((x, y)) = self.undo_stack.get_pointers() {
+                self.cursor.x = x as u16;
+                self.cursor.y = y as u16;
+            }
         }
     }
 

@@ -268,7 +268,11 @@ fn handle_compound_inputs(
     }
 
     if app.buffer_content != captured_buffer_content {
-        app.undo_stack.push(captured_buffer_content);
+        app.undo_stack.push(
+            captured_buffer_content,
+            app.cursor.x.into(),
+            app.cursor.y.into(),
+        );
     }
 
     Ok(())

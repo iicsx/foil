@@ -1,6 +1,7 @@
 #[derive(Debug)]
 pub struct UndoStack {
     stack: Vec<String>,
+    pointers: Vec<(usize, usize)>,
     current_index: usize,
 }
 
@@ -8,12 +9,14 @@ impl UndoStack {
     pub fn new() -> Self {
         UndoStack {
             stack: Vec::new(),
+            pointers: Vec::new(),
             current_index: 0,
         }
     }
 
-    pub fn push(&mut self, state: String) {
+    pub fn push(&mut self, state: String, x: usize, y: usize) {
         self.stack.push(state);
+        self.pointers.push((x, y));
         self.current_index = self.stack.len();
     }
 
@@ -39,6 +42,16 @@ impl UndoStack {
             let state = &self.stack[self.current_index];
             self.current_index += 1;
             Some(state.clone())
+        } else {
+            None
+        }
+    }
+
+    pub fn get_pointers(&self) -> Option<(usize, usize)> {
+        let index = self.current_index;
+
+        if index < self.pointers.len() {
+            Some(self.pointers[index])
         } else {
             None
         }
