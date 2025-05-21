@@ -1,9 +1,11 @@
 use crate::file_helper::PathHelper;
 use crate::utils::{
+    buffer_storage::{BufferStorage, FileEntry, State},
     cursor::Cursor,
     input_buffer::InputBuffer,
+    system,
     undo_stack::UndoStack,
-    yank_buffer::{YankBuffer, YankType},
+    yank_buffer::YankBuffer,
 };
 use crossterm::{cursor::SetCursorStyle, execute};
 use ratatui::widgets::Paragraph;
@@ -45,10 +47,11 @@ pub struct App<'a> {
     pub running: bool,
     pub mode: Mode,
     pub buffer_content: String,
+    pub buffer_storage: BufferStorage,
     pub yank_buffer: YankBuffer,
     pub undo_stack: UndoStack,
     pub command: Option<String>,
-    pub path: Option<PathHelper>,
+    pub path: PathHelper,
 
     pub parent_pane: Option<Paragraph<'a>>,
     pub current_pane: Option<Paragraph<'a>>,
@@ -56,18 +59,23 @@ pub struct App<'a> {
 
     pub cursor: Cursor,
     pub command_buffer: InputBuffer,
+    pub need_confirmation: bool,
 }
 
 impl Default for App<'_> {
     fn default() -> Self {
+        let mut buffer_storage = BufferStorage::new();
+        let _ = buffer_storage.add_view(system::pwd());
+
         Self {
             running: true,
             mode: Mode::default(),
             buffer_content: String::from(""),
+            buffer_storage: buffer_storage,
             yank_buffer: YankBuffer::new(),
             undo_stack: UndoStack::new(),
             command: None,
-            path: Some(PathHelper::new("./")),
+            path: PathHelper::new("./", &system::pwd()),
 
             parent_pane: None,
             current_pane: None,
@@ -75,6 +83,7 @@ impl Default for App<'_> {
 
             cursor: Cursor::default(),
             command_buffer: InputBuffer::new(),
+            need_confirmation: false,
         }
     }
 }
@@ -85,14 +94,18 @@ impl App<'_> {
         let mut undo_stack = UndoStack::new();
         undo_stack.push(buffer_content.clone(), 0, 0);
 
+        let mut buffer_storage = BufferStorage::new();
+        let _ = buffer_storage.add_view(path.to_string());
+
         Self {
             running: true,
             command: None,
             mode,
             buffer_content: buffer_content.clone(),
+            buffer_storage: buffer_storage,
             yank_buffer: YankBuffer::new(),
             undo_stack: undo_stack,
-            path: Some(PathHelper::new(path)),
+            path: PathHelper::new(path, &system::pwd()),
 
             parent_pane: None,
             current_pane: None,
@@ -100,6 +113,7 @@ impl App<'_> {
 
             cursor: Cursor::default(),
             command_buffer: InputBuffer::new(),
+            need_confirmation: false,
         }
     }
 
@@ -164,8 +178,19 @@ impl App<'_> {
         if x as usize >= line.len() {
             return;
         }
+        let identifier = line.clone();
 
         line.remove(x as usize);
+
+        let view = self.buffer_storage.get_view(&self.path.get_absolute_path());
+        match view {
+            Some(mut view) => {
+                view.set_name(&identifier, line);
+                self.buffer_storage
+                    .update_view(&self.path.get_absolute_path(), view);
+            }
+            _ => {}
+        }
 
         self.buffer_content = lines.join("\n");
     }
@@ -418,5 +443,23 @@ impl App<'_> {
         if let Some(redo) = self.undo_stack.redo() {
             self.buffer_content = redo;
         }
+    }
+
+    pub fn get_files(&self, state: State) -> Vec<FileEntry> {
+        let views = self.buffer_storage.views.clone();
+        let mut files = Vec::new();
+
+        for (_, view) in views {
+            let files_view = view.get_files_by_state(state.clone());
+            for file in files_view {
+                files.push(file.clone());
+            }
+        }
+
+        files
+    }
+
+    pub fn save(&mut self) {
+        self.need_confirmation = true;
     }
 }

@@ -4,19 +4,22 @@ use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone)]
 pub struct PathHelper {
+    absolute_path: String,
     pub current_path: PathBuf,
 }
 
 impl PathHelper {
-    pub fn new(path: &str) -> Self {
+    pub fn new(path: &str, pwd: &str) -> Self {
         PathHelper {
             current_path: Path::new(path).to_path_buf(),
+            absolute_path: pwd.to_string(),
         }
     }
 
     pub fn from_path(path: PathHelper) -> Self {
         PathHelper {
             current_path: path.current_path,
+            absolute_path: path.absolute_path,
         }
     }
 
@@ -108,6 +111,27 @@ impl PathHelper {
         Ok(())
     }
 
+    pub fn sim_cd(&mut self, path: &str) -> Result<String, ()> {
+        let path_str = match self.current_path.as_os_str().to_str() {
+            Some(path_str) => path_str,
+            None => return Err(()),
+        };
+
+        let full_path: String = path_str.to_string() + "/" + path;
+        let new_path = Path::new(&full_path);
+
+        if !new_path.exists() {
+            return Err(());
+        }
+
+        let new_path_str = match new_path.to_str() {
+            Some(path_str) => path_str,
+            None => return Err(()),
+        };
+
+        Ok(new_path_str.to_string())
+    }
+
     pub fn set_path(&mut self, path: &str) -> Result<(), ()> {
         let new_path = Path::new(path);
 
@@ -147,5 +171,18 @@ impl PathHelper {
                 "Failed to convert OsString to String",
             )),
         }
+    }
+
+    pub fn get_absolute_path(&self) -> String {
+        let mut temp = self.current_path.to_str().unwrap_or("").to_string();
+        let mut absolute_path = self.absolute_path.clone();
+
+        while temp.starts_with("../") || temp == ".." {
+            let last_slash = absolute_path.rfind('/').unwrap_or(temp.len());
+            absolute_path = absolute_path[0..last_slash].to_string();
+            temp = temp[temp.len().min(3)..].to_string();
+        }
+
+        absolute_path
     }
 }

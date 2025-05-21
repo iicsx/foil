@@ -8,7 +8,7 @@ use crate::{
     event::{Event, EventHandler},
     handler::handle_key_events,
     tui::Tui,
-    utils::file_helper,
+    utils::{file_helper, system},
 };
 
 pub mod app;
@@ -29,6 +29,9 @@ async fn main() -> AppResult<()> {
     tui.init()?;
 
     let _ = execute!(std::io::stdout(), SetCursorStyle::SteadyBlock);
+
+    app.path = file_helper::PathHelper::new(".", &system::pwd());
+    app.buffer_storage.add_view(String::from(system::pwd()))?;
 
     while app.running {
         tui.draw(&mut app)?;

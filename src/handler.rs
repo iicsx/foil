@@ -1,11 +1,15 @@
 use crate::app::{App, AppResult, Mode};
-use crate::utils::motion_handler::handler as motion_handler;
+use crate::utils::{buffer_storage::State, motion_handler::handler as motion_handler, system};
 use crossterm::event::{KeyCode, KeyEvent};
 use crossterm::{cursor::SetCursorStyle, execute};
 use std::process::Command;
 
 /// Handles the key events and updates the state of [`App`].
 pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
+    if app.need_confirmation {
+        return handle_confirm(&key_event, app);
+    }
+
     let result = match app.mode {
         Mode::Normal => handle_normal_mode(key_event, app),
         Mode::Insert => handle_insert_mode(key_event, app),
@@ -137,7 +141,7 @@ fn handle_command_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
                 }
                 // TODO implement save
                 "w" => {
-                    app.running = false;
+                    app.save();
                     return Ok(());
                 }
                 "wq" => {
@@ -277,6 +281,37 @@ fn handle_compound_inputs(
             app.cursor.x.into(),
             app.cursor.y.into(),
         );
+    }
+
+    Ok(())
+}
+
+pub fn handle_confirm(key_event: &KeyEvent, app: &mut App) -> AppResult<()> {
+    app.need_confirmation = false;
+
+    match key_event.code {
+        KeyCode::Char('y') => {
+            let files_to_delete = app.get_files(State::Deleted);
+            let files_to_rename = app.get_files(State::Modified);
+
+            for file in files_to_delete {
+                let _ = system::delete_file(file.name.clone())?;
+            }
+            for file in files_to_rename {
+                let _ = system::rename_file(file.original_name.clone(), file.name.clone())?;
+            }
+
+            app.command_buffer.clear();
+            let _ = app.set_mode(Mode::Normal)?;
+        }
+        KeyCode::Char('n') => {
+            app.command_buffer.clear();
+            let _ = app.set_mode(Mode::Normal)?;
+        }
+        _ => {
+            app.command_buffer.clear();
+            let _ = app.set_mode(Mode::Normal)?;
+        }
     }
 
     Ok(())

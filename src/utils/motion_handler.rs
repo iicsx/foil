@@ -1,9 +1,21 @@
 pub mod handler {
     use crate::app::App;
     use crate::app::Mode;
+    use crate::utils::buffer_storage::State;
     use crate::utils::yank_buffer::YankType;
 
     pub fn dd(app: &mut App) {
+        let current_path: String = app.path.get_absolute_path().to_string();
+
+        let line = {
+            let buffer_content = &app.buffer_content;
+            buffer_content
+                .lines()
+                .nth(app.cursor.y as usize - 1)
+                .unwrap_or("")
+                .to_string()
+        };
+
         if app.cursor.y == app.buffer_content.lines().count().try_into().unwrap_or(0) {
             app.delete_line_full(app.cursor.y - 1);
             app.cursor.up();
@@ -23,6 +35,13 @@ pub mod handler {
                     .try_into()
                     .unwrap_or(1);
             }
+        }
+
+        if let Some(mut view) = app.buffer_storage.get_view(&current_path) {
+            view.set_state(&line.trim(), State::Deleted);
+            // this is retarded and makes my skin crawl but it's needed to update the hashmap
+            // revisit this or I will blow up this entire project (TODO)
+            app.buffer_storage.update_view(&current_path, view)
         }
     }
 
@@ -320,7 +339,8 @@ pub mod handler {
             }
         }
 
-        app.undo_stack.push(buffer_content);
+        app.undo_stack
+            .push(buffer_content, app.cursor.x.into(), app.cursor.y.into());
     }
 
     #[allow(non_snake_case)]
@@ -347,6 +367,7 @@ pub mod handler {
             }
         }
 
-        app.undo_stack.push(buffer_content);
+        app.undo_stack
+            .push(buffer_content, app.cursor.x.into(), app.cursor.y.into());
     }
 }

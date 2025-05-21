@@ -59,7 +59,7 @@ pub fn pwd() -> String {
         Ok(output) => {
             let path = String::from_utf8_lossy(&output.stdout);
 
-            String::from(path)
+            String::from(path.trim())
         }
         Err(_) => {
             process::exit(1);
@@ -123,4 +123,26 @@ pub fn get_file_size(filename: String) -> String {
     }
 
     res
+}
+
+pub fn delete_file(file_name: String) -> Result<String, std::io::Error> {
+    let output = std::process::Command::new("rm")
+        .arg("-rf")
+        .arg(file_name)
+        .output()?;
+
+    let result = String::from_utf8_lossy(&output.stdout);
+
+    Ok(result.trim().to_string())
+}
+
+pub fn rename_file(old_name: String, new_name: String) -> Result<String, std::io::Error> {
+    let output = std::process::Command::new("mv")
+        .arg(old_name)
+        .arg(new_name)
+        .output()?;
+
+    let result = String::from_utf8_lossy(&output.stdout);
+
+    Ok(result.trim().to_string())
 }
