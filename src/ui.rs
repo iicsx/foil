@@ -114,12 +114,14 @@ fn get_footer<'a>(block: &Block<'a>, app: &App) -> Paragraph<'a> {
 
 fn get_body<'a>(app: &mut App) -> BodyLayout {
     let mut current_dir: PathHelper = app.path.clone();
-    let current_files = current_dir
+    let mut current_files = current_dir
         .get_dir_names_printable(true)
         .unwrap_or(vec![])
         .iter()
         .map(PathHelper::trim_path)
         .collect::<Vec<_>>();
+
+    current_files.insert(0, String::from("../"));
 
     if app.rerender_dir_content {
         app.buffer_content = current_files.join("\n");

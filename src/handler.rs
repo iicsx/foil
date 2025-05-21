@@ -269,6 +269,12 @@ fn handle_compound_inputs(
         // this is just to ensure we don't stay in pending mode
         let _ = app.set_mode(Mode::Normal)?;
 
+        // Line 1 has '../' and is immutable
+        if app.cursor.y == 1 {
+            app.command_buffer.clear();
+            return Ok(());
+        }
+
         // TODO consider moving this into a separate "execute" call
         match command.as_str() {
             "gg" => app.cursor.reset_y(),

@@ -174,7 +174,13 @@ impl PathHelper {
     }
 
     pub fn get_absolute_path(&self) -> String {
-        let mut temp = self.current_path.to_str().unwrap_or("").to_string();
+        let mut temp = self
+            .current_path
+            .to_str()
+            .unwrap_or("")
+            .to_string()
+            .trim_start_matches("./")
+            .to_string();
         let mut absolute_path = self.absolute_path.clone();
 
         while temp.starts_with("../") || temp == ".." {
@@ -183,6 +189,18 @@ impl PathHelper {
             temp = temp[temp.len().min(3)..].to_string();
         }
 
-        absolute_path
+        let temp = temp.trim_start_matches("./").trim_start_matches(".");
+
+        return match temp.len() > 0 {
+            true => format!("{}/{}", absolute_path, &temp),
+            false => absolute_path,
+        };
+    }
+
+    pub fn trim_path(path: &String) -> String {
+        let parts = path.split('/').collect::<Vec<&str>>();
+        let file_name = parts.last().unwrap_or(&"");
+
+        file_name.to_string()
     }
 }
