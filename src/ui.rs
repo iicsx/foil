@@ -92,7 +92,10 @@ fn get_header<'a>(block: &Block<'a>) -> Paragraph<'a> {
 
 fn get_footer<'a>(block: &Block<'a>, app: &App) -> Paragraph<'a> {
     let spans: Line = match app.mode {
-        Mode::Command => Line::from(Span::raw(app.command.clone().unwrap_or("".to_string()))),
+        Mode::Command => Line::from(vec![Span::raw(format!(
+            ":{}",
+            app.command.clone().unwrap_or("".to_string())
+        ))]),
         _ => Line::from(vec![
             Span::styled(format!("{}", app.mode), Style::default().fg(Color::White)),
             Span::styled(
