@@ -1,13 +1,18 @@
 use crate::app::{App, AppResult, Mode};
-use crate::utils::{buffer_storage::State, motion_handler::handler as motion_handler, system};
+use crate::utils::{
+    buffer_storage::{FileEntry, State},
+    motion_handler::handler as motion_handler,
+    system,
+};
 use crossterm::event::{KeyCode, KeyEvent};
 use crossterm::{cursor::SetCursorStyle, execute};
-use std::process::Command;
 
 /// Handles the key events and updates the state of [`App`].
 pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
     if app.need_confirmation {
-        return handle_confirm(&key_event, app);
+        let _ = handle_confirm(&key_event, app);
+        app.command_buffer.clear();
+        return Ok(());
     }
 
     let result = match app.mode {
@@ -82,6 +87,8 @@ fn handle_normal_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
                     .to_string()
             };
             let _ = app.path.cd(&line);
+            app.buffer_storage.add_view(app.path.get_absolute_path())?;
+
             app.rerender_dir_content = true;
             app.cursor.reset_x();
             app.cursor.reset_y();
@@ -154,19 +161,23 @@ fn handle_command_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
                     app.running = false;
                     return Ok(());
                 }
-                // TODO implement save
                 "w" => {
                     app.save();
+                    app.command = None;
+                    let _ = app.set_mode(Mode::Normal)?;
                     return Ok(());
                 }
                 "wq" => {
+                    // TODO
+                    // app.save();
                     app.running = false;
                     return Ok(());
                 }
-                _ => match Command::new(command).spawn() {
-                    Ok(_) => app.buffer_content += "success",
-                    Err(_) => app.buffer_content += "Some error",
-                },
+                _ => {
+                    //match Command::new(command).spawn() {
+                    //Ok(_) => app.buffer_content += "success",
+                    //Err(_) => app.buffer_content += "Some error",
+                }
             }
 
             app.command = None;
@@ -308,16 +319,16 @@ fn handle_compound_inputs(
 }
 
 pub fn handle_confirm(key_event: &KeyEvent, app: &mut App) -> AppResult<()> {
-    app.need_confirmation = false;
-
     match key_event.code {
         KeyCode::Char('y') => {
             let files_to_delete = app.get_files(State::Deleted);
             let files_to_rename = app.get_files(State::Modified);
             let files_to_create = app.get_files(State::Created);
+            let files_to_move = app.get_files(State::Created);
 
             for file in files_to_delete {
                 let new_file_name = file.name.clone().trim().to_string();
+                println!("Deleting file: {}", condense_path_name(file));
                 let _ = system::delete_file(new_file_name)?;
             }
             for file in files_to_rename {
@@ -328,19 +339,41 @@ pub fn handle_confirm(key_event: &KeyEvent, app: &mut App) -> AppResult<()> {
                 let new_file_name = file.name.clone().trim().to_string();
                 let _ = system::create_file(new_file_name)?;
             }
+            for file in files_to_move {
+                let new_file_name = file.name.clone().trim().to_string();
+                let _ = system::move_file(file.original_name.clone(), new_file_name)?;
+            }
 
-            app.command_buffer.clear();
+            app.command = None;
             let _ = app.set_mode(Mode::Normal)?;
+            app.need_confirmation = false;
         }
         KeyCode::Char('n') => {
-            app.command_buffer.clear();
+            app.command = None;
             let _ = app.set_mode(Mode::Normal)?;
+            app.need_confirmation = false;
         }
-        _ => {
-            app.command_buffer.clear();
+        KeyCode::Esc => {
+            app.command = None;
+            app.need_confirmation = false;
             let _ = app.set_mode(Mode::Normal)?;
+            app.need_confirmation = false;
         }
+        _ => {}
     }
 
     Ok(())
+}
+
+fn condense_path_name(file: FileEntry) -> String {
+    let pwd = system::pwd();
+    let path = file.dir.clone();
+    let path = path.trim_start_matches(pwd.as_str());
+
+    let path = path.trim_start_matches("./");
+    let path = path.trim_start_matches("../");
+
+    let name = format!("{}{}", path, file.name);
+
+    name
 }

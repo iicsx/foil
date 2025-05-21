@@ -1,6 +1,6 @@
 use crate::file_helper::PathHelper;
 use crate::utils::{
-    buffer_storage::{BufferStorage, FileEntry, State},
+    buffer_storage::{BufferStorage, FileEntry, FileType, State},
     cursor::Cursor,
     input_buffer::InputBuffer,
     system,
@@ -167,7 +167,24 @@ impl App<'_> {
             return;
         }
 
+        let identifier = line.clone();
+
         line.insert_str(x as usize, content);
+
+        let view = self.buffer_storage.get_view(&self.path.get_absolute_path());
+        match view {
+            Some(mut view) => {
+                if identifier.trim().is_empty() {
+                    view.add_file(line, FileType::File);
+                } else {
+                    view.set_name(&identifier, line);
+                }
+
+                self.buffer_storage
+                    .update_view(&self.path.get_absolute_path(), view);
+            }
+            _ => {}
+        }
 
         self.buffer_content = lines.join("\n");
     }
@@ -464,6 +481,8 @@ impl App<'_> {
     }
 
     pub fn save(&mut self) {
-        self.need_confirmation = true;
+        if self.buffer_storage.has_changes() {
+            self.need_confirmation = true;
+        }
     }
 }

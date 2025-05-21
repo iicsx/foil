@@ -61,6 +61,27 @@ impl PathHelper {
         Ok(names)
     }
 
+    pub fn get_dir_names_trimmed(&self) -> Result<Vec<String>, std::io::Error> {
+        let mut names = Vec::new();
+
+        for name in self.get_dir_names()? {
+            match name.path().into_os_string().into_string() {
+                Ok(pathname) => {
+                    let trimmed = pathname
+                        .trim_start_matches("./")
+                        .to_string()
+                        .trim_start_matches("../")
+                        .to_string();
+
+                    names.push(trimmed);
+                }
+                Err(_) => {}
+            }
+        }
+
+        Ok(names)
+    }
+
     pub fn get_file_name(&self) -> Option<&str> {
         let n = match self.current_path.file_name() {
             Some(n) => n,

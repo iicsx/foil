@@ -141,13 +141,33 @@ impl DirBuffer {
     }
 
     pub fn set_name(&mut self, name: &str, new_name: &str) {
-        if let Some((_, file)) = self.files.iter_mut().find(|(_, file)| file.name == name) {
+        if let Some((_, mut file)) = self.files.remove_entry(name) {
             file.name = new_name.to_string();
+
+            if file.state == State::Created {
+                self.files.insert(new_name.to_string(), file);
+                return;
+            }
 
             if file.original_name == name {
                 file.state = State::Unmodified;
             } else {
                 file.state = State::Modified;
+            }
+
+            self.files.insert(new_name.to_string(), file);
+        }
+    }
+
+    pub fn set_path(&mut self, name: &str, path: &str) {
+        if let Some(file) = self.files.get_mut(name) {
+            file.dir = path.to_string();
+            file.state = State::Modified;
+
+            if file.original_dir == path {
+                file.state = State::Unmodified;
+            } else {
+                file.state = State::Moved;
             }
         }
     }
@@ -215,6 +235,10 @@ impl BufferStorage {
     }
 
     pub fn add_view(&mut self, dir: String) -> Result<(), std::io::Error> {
+        if let Some(_) = self.get_view(&dir) {
+            return Ok(());
+        }
+
         let buffer = DirBuffer::new(&dir)?;
         self.views.insert(dir, buffer);
 
@@ -232,5 +256,17 @@ impl BufferStorage {
 
     pub fn update_view(&mut self, dir: &str, buffer: DirBuffer) {
         self.views.insert(dir.to_string(), buffer);
+    }
+
+    pub fn has_changes(&self) -> bool {
+        for buffer in self.views.values() {
+            for file in buffer.files.values() {
+                if file.state != State::Unmodified {
+                    return true;
+                }
+            }
+        }
+
+        false
     }
 }

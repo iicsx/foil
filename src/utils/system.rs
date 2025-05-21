@@ -160,3 +160,14 @@ pub fn create_file(file_name: String) -> Result<String, std::io::Error> {
 
     Ok(result.trim().to_string())
 }
+
+pub fn move_file(file_name: String, new_dir: String) -> Result<String, std::io::Error> {
+    let output = std::process::Command::new("mv")
+        .arg(file_name)
+        .arg(new_dir)
+        .output()?;
+
+    let result = String::from_utf8_lossy(&output.stdout);
+
+    Ok(result.trim().to_string())
+}
