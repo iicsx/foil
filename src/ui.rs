@@ -114,16 +114,28 @@ fn get_footer<'a>(block: &Block<'a>, app: &App) -> Paragraph<'a> {
 
 fn get_body<'a>(app: &mut App) -> BodyLayout {
     let mut current_dir: PathHelper = app.path.clone();
-    let current_files = current_dir.get_dir_names_printable(true).unwrap_or(vec![]);
-    if app.buffer_content.is_empty() {
+    let current_files = current_dir
+        .get_dir_names_printable(true)
+        .unwrap_or(vec![])
+        .iter()
+        .map(PathHelper::trim_path)
+        .collect::<Vec<_>>();
+
+    if app.rerender_dir_content {
         app.buffer_content = current_files.join("\n");
+        app.rerender_dir_content = false;
     }
 
     let parent_dir: PathHelper = match current_dir.sim_cd("..") {
         Ok(path) => PathHelper::new(&path, &system::pwd()),
         Err(_) => PathHelper::new("..", &system::pwd()),
     };
-    let parent_files: Vec<String> = parent_dir.get_dir_names_printable(true).unwrap_or(vec![]);
+    let parent_files: Vec<String> = parent_dir
+        .get_dir_names_trimmed()
+        .unwrap_or(vec![])
+        .iter()
+        .map(PathHelper::trim_path)
+        .collect();
 
     let left = Paragraph::new(parent_files.join("\n"))
         .block(

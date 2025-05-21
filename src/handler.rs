@@ -72,6 +72,21 @@ fn handle_normal_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         KeyCode::Char('p') => motion_handler::p(app),
         KeyCode::Char('P') => motion_handler::P(app),
 
+        KeyCode::Enter => {
+            let line = {
+                let buffer_content = &app.buffer_content;
+                buffer_content
+                    .lines()
+                    .nth(app.cursor.y as usize - 1)
+                    .unwrap_or("")
+                    .to_string()
+            };
+            let _ = app.path.cd(&line);
+            app.rerender_dir_content = true;
+            app.cursor.reset_x();
+            app.cursor.reset_y();
+        }
+
         _ => handle_compound_inputs(key_event, app)?,
     };
 

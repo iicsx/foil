@@ -59,7 +59,9 @@ pub struct App<'a> {
 
     pub cursor: Cursor,
     pub command_buffer: InputBuffer,
+
     pub need_confirmation: bool,
+    pub rerender_dir_content: bool,
 }
 
 impl Default for App<'_> {
@@ -84,6 +86,7 @@ impl Default for App<'_> {
             cursor: Cursor::default(),
             command_buffer: InputBuffer::new(),
             need_confirmation: false,
+            rerender_dir_content: true,
         }
     }
 }
@@ -114,6 +117,7 @@ impl App<'_> {
             cursor: Cursor::default(),
             command_buffer: InputBuffer::new(),
             need_confirmation: false,
+            rerender_dir_content: true,
         }
     }
 
