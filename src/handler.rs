@@ -293,12 +293,19 @@ pub fn handle_confirm(key_event: &KeyEvent, app: &mut App) -> AppResult<()> {
         KeyCode::Char('y') => {
             let files_to_delete = app.get_files(State::Deleted);
             let files_to_rename = app.get_files(State::Modified);
+            let files_to_create = app.get_files(State::Created);
 
             for file in files_to_delete {
-                let _ = system::delete_file(file.name.clone())?;
+                let new_file_name = file.name.clone().trim().to_string();
+                let _ = system::delete_file(new_file_name)?;
             }
             for file in files_to_rename {
-                let _ = system::rename_file(file.original_name.clone(), file.name.clone())?;
+                let new_file_name = file.name.clone().trim().to_string();
+                let _ = system::rename_file(file.original_name.clone(), new_file_name)?;
+            }
+            for file in files_to_create {
+                let new_file_name = file.name.clone().trim().to_string();
+                let _ = system::create_file(new_file_name)?;
             }
 
             app.command_buffer.clear();
