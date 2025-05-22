@@ -33,7 +33,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
 
     let default_block = Block::default().style(Style::default());
 
-    let header = get_header(&default_block);
+    let header = get_header(&default_block, app);
     frame.render_widget(header, chunks[0]);
 
     let footer = get_footer(&bordered_block, &app);
@@ -78,11 +78,11 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     app.cursor.update_frame(frame);
 }
 
-fn get_header<'a>(block: &Block<'a>) -> Paragraph<'a> {
+fn get_header<'a>(block: &Block<'a>, app: &App) -> Paragraph<'a> {
     let spans = Line::from(vec![
         Span::styled(get_hostname(), Style::default().fg(Color::Yellow)),
         Span::styled(
-            format!(" {}", get_dirname()),
+            format!(" {}", get_dirname(app)),
             Style::default().fg(Color::Blue),
         ),
     ]);
@@ -180,8 +180,8 @@ pub fn get_hostname() -> String {
     prompt
 }
 
-pub fn get_dirname() -> String {
-    system::pwd()
+pub fn get_dirname(app: &App) -> String {
+    app.path.get_absolute_path()
 }
 
 pub fn get_current_file(app: &App) -> String {

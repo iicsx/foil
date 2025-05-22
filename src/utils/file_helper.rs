@@ -116,6 +116,15 @@ impl PathHelper {
     }
 
     pub fn cd(&mut self, path: &str) -> Result<(), ()> {
+        if self.get_absolute_path() == "" {
+            return Ok(());
+        }
+
+        let path = match path.starts_with("/") {
+            true => path.trim_start_matches("/"),
+            false => path,
+        };
+
         let path_str = match self.current_path.as_os_str().to_str() {
             Some(path_str) => path_str,
             None => return Err(()),
