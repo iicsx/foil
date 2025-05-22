@@ -121,7 +121,32 @@ impl PathHelper {
             None => return Err(()),
         };
 
-        let full_path: String = path_str.to_string() + "/" + path;
+        let full_path: String = if path_str.ends_with("..") || path_str.ends_with("../") {
+            match path_str.ends_with("/") {
+                true => path_str.to_string() + path,
+                false => path_str.to_string() + "/" + path,
+            }
+        } else {
+            match path_str.ends_with("/") {
+                false => {
+                    if path_str != "." && (path == ".." || path == "../") {
+                        let last_slash = path_str.rfind('/').unwrap_or(path_str.len());
+                        path_str[0..last_slash].to_string()
+                    } else {
+                        path_str.to_string() + "/" + path
+                    }
+                }
+                true => {
+                    if path_str != "." && (path == ".." || path == "../") {
+                        let last_slash = path_str.rfind('/').unwrap_or(path_str.len());
+                        path_str[0..last_slash].to_string()
+                    } else {
+                        path_str.to_string() + path
+                    }
+                }
+            }
+        };
+
         let new_path = Path::new(&full_path);
 
         if !new_path.exists() {
