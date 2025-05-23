@@ -400,7 +400,7 @@ impl App<'_> {
 
         let filename = &line[0 as usize..];
 
-        filename.to_string()
+        filename.trim().to_string()
     }
 
     pub fn seek_whitespace_forward(&self, s: &String, start: usize) -> usize {
@@ -483,6 +483,20 @@ impl App<'_> {
     pub fn save(&mut self) {
         if self.buffer_storage.has_changes() {
             self.need_confirmation = true;
+        }
+    }
+
+    pub fn get_file_type(&self, view: &str, filename: &str) -> FileType {
+        let view = match self.buffer_storage.views.get(view) {
+            Some(v) => v,
+            None => {
+                return FileType::Unknown;
+            }
+        };
+
+        match view.get_file(filename) {
+            Some(file) => file.file_type,
+            None => FileType::Unknown,
         }
     }
 }

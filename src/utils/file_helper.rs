@@ -94,25 +94,11 @@ impl PathHelper {
         }
     }
 
-    pub fn get_parent(&mut self) -> Result<String, ()> {
-        let parent = match self.current_path.parent() {
-            Some(p) => p,
-            None => return Err(()),
-        };
+    pub fn get_parent(&mut self) -> Result<PathHelper, ()> {
+        let mut path = self.clone();
+        path.cd("..")?;
 
-        let buf = parent.to_path_buf();
-        self.current_path = buf.clone();
-
-        match buf.to_str() {
-            Some(path_str) => {
-                if path_str == "" {
-                    return Ok("..".to_string());
-                }
-
-                Ok(path_str.to_string())
-            }
-            None => Err(()),
-        }
+        Ok(path)
     }
 
     pub fn cd(&mut self, path: &str) -> Result<(), ()> {

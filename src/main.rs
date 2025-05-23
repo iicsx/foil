@@ -31,7 +31,12 @@ async fn main() -> AppResult<()> {
     let _ = execute!(std::io::stdout(), SetCursorStyle::SteadyBlock);
 
     app.path = file_helper::PathHelper::new(".", &system::pwd());
-    app.buffer_storage.add_view(String::from(system::pwd()))?;
+    app.buffer_storage.add_view(app.path.get_absolute_path())?;
+    let parent = match app.path.get_parent() {
+        Ok(path) => path,
+        Err(_) => file_helper::PathHelper::new("..", &system::pwd()),
+    };
+    app.buffer_storage.add_view(parent.get_absolute_path())?;
 
     while app.running {
         tui.draw(&mut app)?;

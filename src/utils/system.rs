@@ -171,3 +171,46 @@ pub fn move_file(file_name: String, new_dir: String) -> Result<String, std::io::
 
     Ok(result.trim().to_string())
 }
+
+pub fn get_file_preview(file_name: String, max_lines: usize) -> Result<String, std::io::Error> {
+    let output = std::process::Command::new("head")
+        .arg("-n")
+        .arg(max_lines.to_string())
+        .arg(file_name)
+        .output()?;
+
+    let result = String::from_utf8_lossy(&output.stdout);
+
+    if result.len() == 0 || result.starts_with("head: error") {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "File not found",
+        ));
+    }
+
+    Ok(result.trim().to_string())
+}
+
+pub fn get_dir_preview(dir_name: String) -> Result<String, std::io::Error> {
+    let output = std::process::Command::new("ls")
+        .arg("-l")
+        .arg(dir_name)
+        .output()?;
+
+    let result = String::from_utf8_lossy(&output.stdout);
+
+    let lines = result.lines();
+    let mut res = vec![];
+    for line in lines {
+        if line.starts_with("total") {
+            continue;
+        }
+
+        let parts = line.split_whitespace().collect::<Vec<&str>>();
+        let file_name = parts.last().unwrap_or(&"").to_string();
+
+        res.push(file_name.to_string());
+    }
+
+    Ok(res.join("\n"))
+}

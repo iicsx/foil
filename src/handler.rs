@@ -1,6 +1,6 @@
 use crate::app::{App, AppResult, Mode};
 use crate::utils::{
-    buffer_storage::{FileEntry, State},
+    buffer_storage::{FileEntry, FileType, State},
     motion_handler::handler as motion_handler,
     system,
 };
@@ -185,6 +185,13 @@ fn handle_command_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
 
             return Ok(());
         }
+        KeyCode::Backspace => {
+            if let Some(cmd) = &mut app.command {
+                if cmd.len() > 0 {
+                    cmd.pop();
+                }
+            }
+        }
         KeyCode::Esc => {
             app.command = None;
             app.mode = Mode::Normal;
@@ -196,6 +203,11 @@ fn handle_command_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
 
     match &app.command {
         Some(cmd) => {
+            let code = key_event.code.to_string();
+            if code.len() != 1 || !code.chars().nth(0).unwrap_or(' ').is_alphanumeric() {
+                return Ok(());
+            }
+
             let new_command = cmd.to_owned() + &key_event.code.to_string();
             app.command = Some(new_command);
         }
@@ -327,9 +339,7 @@ pub fn handle_confirm(key_event: &KeyEvent, app: &mut App) -> AppResult<()> {
             let files_to_move = app.get_files(State::Created);
 
             for file in files_to_delete {
-                let new_file_name = file.name.clone().trim().to_string();
-                println!("Deleting file: {}", condense_path_name(file));
-                let _ = system::delete_file(new_file_name)?;
+                let _ = system::delete_file(condense_path_name(file))?;
             }
             for file in files_to_rename {
                 let new_file_name = file.name.clone().trim().to_string();
@@ -373,7 +383,14 @@ fn condense_path_name(file: FileEntry) -> String {
     let path = path.trim_start_matches("./");
     let path = path.trim_start_matches("../");
 
-    let name = format!("{}{}", path, file.name);
+    let mut name = match path.ends_with("/") {
+        true => format!("{}{}", path, file.name),
+        false => format!("{}/{}", path, file.name),
+    };
+
+    if file.file_type == FileType::Directory {
+        name = name + "/";
+    }
 
     name
 }

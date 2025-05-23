@@ -29,7 +29,7 @@ fn get_file_type(path: &str) -> FileType {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum FileType {
     File,
     Directory,
@@ -219,6 +219,10 @@ impl DirBuffer {
         } else {
             None
         }
+    }
+
+    pub fn get_file(&self, name: &str) -> Option<FileEntry> {
+        self.files.get(name).cloned()
     }
 }
 

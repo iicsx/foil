@@ -1,6 +1,9 @@
 use crate::app::{App, Mode};
 use crate::file_helper::PathHelper;
-use crate::utils::{buffer_storage::State, system};
+use crate::utils::{
+    buffer_storage::{FileType, State},
+    system,
+};
 use ratatui::{
     layout::{Constraint, Direction, Flex, Layout, Rect},
     prelude::Position,
@@ -113,7 +116,7 @@ fn get_footer<'a>(block: &Block<'a>, app: &App) -> Paragraph<'a> {
 }
 
 fn get_body<'a>(app: &mut App) -> BodyLayout {
-    let mut current_dir: PathHelper = app.path.clone();
+    let current_dir: PathHelper = app.path.clone();
     let mut current_files = current_dir
         .get_dir_names_printable(true)
         .unwrap_or(vec![])
@@ -128,37 +131,75 @@ fn get_body<'a>(app: &mut App) -> BodyLayout {
         app.rerender_dir_content = false;
     }
 
-    let parent_dir: PathHelper = match current_dir.sim_cd("..") {
-        Ok(path) => PathHelper::new(&path, &system::pwd()),
-        Err(_) => PathHelper::new("..", &system::pwd()),
-    };
+    let mut parent_dir: PathHelper = current_dir.clone();
+    let _ = parent_dir.cd("..");
     let parent_files: Vec<String> = parent_dir
         .get_dir_names_trimmed()
         .unwrap_or(vec![])
         .iter()
         .map(PathHelper::trim_path)
-        .collect();
+        .collect::<Vec<_>>();
 
-    let left = Paragraph::new(parent_files.join("\n"))
-        .block(
-            Block::default()
-                .title("Parent Directory")
-                .borders(Borders::ALL)
-                .border_type(BorderType::Rounded),
-        )
-        .style(Style::default());
+    let parent_path = parent_dir.get_absolute_path().clone();
+    let parts = parent_path.split('/').collect::<Vec<_>>();
+    let current_dir = parts[parts.len() - 1].to_string();
 
-    let middle = Paragraph::new(app.buffer_content.clone()).block(
+    let left = Paragraph::new(
+        parent_files
+            .iter()
+            .map(|line| {
+                let (bg, fg) =
+                    get_line_colors(app, &parent_dir.get_absolute_path(), line, &current_dir);
+
+                Line::from(vec![Span::styled(
+                    line.clone(),
+                    Style::default().bg(bg).fg(fg),
+                )])
+            })
+            .collect::<Vec<_>>(),
+    )
+    .block(
+        Block::default()
+            .title(parent_dir.get_absolute_path())
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded),
+    );
+
+    let current_view = &app
+        .buffer_storage
+        .get_view(&app.path.get_absolute_path())
+        .unwrap_or_else(|| app.buffer_storage.get_view(&system::pwd()).unwrap())
+        .dir;
+    let hovered_file = app.get_hovered_filename();
+
+    let middle = Paragraph::new(
+        app.buffer_content
+            .lines()
+            .map(|line| {
+                let (bg, fg) = get_line_colors(app, current_view, line, &hovered_file);
+
+                Line::from(vec![Span::styled(
+                    line.to_string(),
+                    Style::default().bg(bg).fg(fg),
+                )])
+            })
+            .collect::<Vec<_>>(),
+    )
+    .block(
         Block::default()
             .title("Current Directory")
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded),
     );
 
-    let right = Paragraph::new("")
+    let right = Paragraph::new(get_preview(&hovered_file))
         .block(
             Block::default()
-                .title("Child Directory")
+                .title(if hovered_file == "../" {
+                    "Parent Directory".to_string()
+                } else {
+                    hovered_file
+                })
                 .borders(Borders::ALL)
                 .border_type(BorderType::Rounded),
         )
@@ -263,4 +304,38 @@ pub fn get_confirmation_content<'a>(block: &Block<'a>, app: &mut App) -> Paragra
         .collect::<Vec<_>>();
 
     Paragraph::new(all_lines).block(block.clone())
+}
+
+fn get_preview(filename: &str) -> String {
+    let file_preview = system::get_file_preview(filename.to_string(), 30);
+    let res = match file_preview {
+        Ok(content) => content,
+        Err(_) => {
+            system::get_dir_preview(filename.to_string()).unwrap_or("Invalid File Type".to_string())
+        }
+    };
+
+    res
+}
+
+pub fn get_line_colors(
+    app: &App,
+    current_view: &str,
+    line: &str,
+    hovered_file: &str,
+) -> (Color, Color) {
+    match app.get_file_type(current_view, line.trim()) {
+        FileType::File => match line == hovered_file {
+            false => (Color::default(), Color::LightGreen),
+            true => (Color::LightGreen, Color::Black),
+        },
+        FileType::Directory => match line == hovered_file {
+            false => (Color::default(), Color::LightBlue),
+            true => (Color::LightBlue, Color::Black),
+        },
+        FileType::Unknown => match line == hovered_file {
+            true => (Color::default(), Color::default()),
+            false => (Color::default(), Color::default()),
+        },
+    }
 }
