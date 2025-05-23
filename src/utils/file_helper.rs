@@ -230,12 +230,12 @@ impl PathHelper {
             temp = temp[temp.len().min(3)..].to_string();
         }
 
-        let temp = temp.trim_start_matches("./").trim_start_matches(".");
+        let temp = temp.trim_start_matches("./");
 
-        return match temp.len() > 0 {
+        match temp.len() > 0 && temp != "." {
             true => format!("{}/{}", absolute_path, &temp),
             false => absolute_path,
-        };
+        }
     }
 
     pub fn trim_path(path: &String) -> String {
