@@ -11,10 +11,10 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, Paragraph},
 };
 
-pub struct BodyLayout {
-    pub parent: Paragraph<'static>,
-    pub current: Paragraph<'static>,
-    pub child: Paragraph<'static>,
+pub struct BodyLayout<'a> {
+    pub parent: Paragraph<'a>,
+    pub current: Paragraph<'a>,
+    pub child: Paragraph<'a>,
 }
 
 pub fn get_header<'a>(block: &Block<'a>, app: &App) -> Paragraph<'a> {
@@ -51,7 +51,7 @@ pub fn get_footer<'a>(block: &Block<'a>, app: &App) -> Paragraph<'a> {
     Paragraph::new(spans).block(block.clone())
 }
 
-pub fn get_body<'a>(app: &mut App) -> BodyLayout {
+pub fn get_body<'a>(app: &mut App) -> BodyLayout<'a> {
     let current_dir: PathHelper = app.path.clone();
 
     let cl = current_dir.clone().get_absolute_path();
