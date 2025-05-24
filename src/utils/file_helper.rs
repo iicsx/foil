@@ -238,7 +238,7 @@ impl PathHelper {
         }
     }
 
-    pub fn trim_path(path: &String) -> String {
+    pub fn trim_path(path: &str) -> String {
         let parts = path.split('/').collect::<Vec<&str>>();
         let file_name = parts.last().unwrap_or(&"");
 
