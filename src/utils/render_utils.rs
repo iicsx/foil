@@ -322,7 +322,9 @@ pub fn get_file_preview_content<'a>(
             app.child_preview = system::get_file_preview(hovered_file.clone(), 50)
                 .unwrap_or("Error Reading".to_string());
 
-            get_styled_preview(&app.child_preview)
+            let file_extension = hovered_file.split('.').last().unwrap_or("txt").to_string();
+
+            get_styled_preview(&app.child_preview, &file_extension)
         }
         FileType::Directory => system::get_dir_preview(hovered_file.clone())
             .unwrap_or("Error Reading".to_string())
@@ -368,11 +370,14 @@ pub fn get_file_preview_content<'a>(
     files
 }
 
-fn get_styled_preview<'a>(content: &'a str) -> Vec<Line<'a>> {
+fn get_styled_preview<'a>(content: &'a str, file_extension: &str) -> Vec<Line<'a>> {
     let ps = SyntaxSet::load_defaults_newlines();
     let ts = ThemeSet::load_defaults();
-    let syntax = ps.find_syntax_by_extension("rs").unwrap();
-    let mut h = HighlightLines::new(syntax, &ts.themes["base16-ocean.dark"]);
+
+    let syntax = ps
+        .find_syntax_by_extension(file_extension)
+        .unwrap_or(ps.find_syntax_plain_text());
+    let mut h = HighlightLines::new(syntax, &ts.themes["Solarized (dark)"]);
 
     let mut lines = Vec::new();
     for line in LinesWithEndings::from(content) {
