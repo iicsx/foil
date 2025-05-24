@@ -47,6 +47,7 @@ pub struct App<'a> {
     pub running: bool,
     pub mode: Mode,
     pub buffer_content: String,
+    pub child_preview: String,
     pub buffer_storage: BufferStorage,
     pub yank_buffer: YankBuffer,
     pub undo_stack: UndoStack,
@@ -73,6 +74,7 @@ impl Default for App<'_> {
             running: true,
             mode: Mode::default(),
             buffer_content: String::from(""),
+            child_preview: String::from(""),
             buffer_storage: buffer_storage,
             yank_buffer: YankBuffer::new(),
             undo_stack: UndoStack::new(),
@@ -105,6 +107,7 @@ impl App<'_> {
             command: None,
             mode,
             buffer_content: buffer_content.clone(),
+            child_preview: String::from(""),
             buffer_storage: buffer_storage,
             yank_buffer: YankBuffer::new(),
             undo_stack: undo_stack,
@@ -284,7 +287,7 @@ impl App<'_> {
         self.cursor.y = new_y;
     }
 
-    pub fn get_end_x(&self, s: &String, start: usize, inclusive: bool) -> usize {
+    pub fn get_end_x(&self, s: &str, start: usize, inclusive: bool) -> usize {
         let current_char = s.chars().nth(start.max(1) - 1).unwrap_or('.');
         if !current_char.is_alphanumeric() {
             return start + 1;
@@ -305,7 +308,7 @@ impl App<'_> {
         end
     }
 
-    pub fn get_start_x(&self, s: &String, start: usize) -> usize {
+    pub fn get_start_x(&self, s: &str, start: usize) -> usize {
         if start <= 1 {
             return 1;
         }
@@ -403,7 +406,7 @@ impl App<'_> {
         filename.trim().to_string()
     }
 
-    pub fn seek_whitespace_forward(&self, s: &String, start: usize) -> usize {
+    pub fn seek_whitespace_forward(&self, s: &str, start: usize) -> usize {
         let mut end = start;
 
         while end < s.len() && s.chars().nth(end).unwrap_or(' ').is_whitespace() {
@@ -413,7 +416,7 @@ impl App<'_> {
         end
     }
 
-    pub fn seek_whitespace_backward(&self, s: &String, start: usize) -> usize {
+    pub fn seek_whitespace_backward(&self, s: &str, start: usize) -> usize {
         let mut end = start;
 
         while end > 0 && s.chars().nth(end).unwrap_or(' ').is_whitespace() {
@@ -423,7 +426,7 @@ impl App<'_> {
         end
     }
 
-    pub fn seek_special_character_forward(&self, s: &String, start: usize) -> usize {
+    pub fn seek_special_character_forward(&self, s: &str, start: usize) -> usize {
         let mut end = start;
 
         while end < s.len() && s.chars().nth(end).unwrap_or(' ').is_alphanumeric() {
@@ -433,7 +436,7 @@ impl App<'_> {
         end
     }
 
-    pub fn seek_special_character_backward(&self, s: &String, start: usize) -> usize {
+    pub fn seek_special_character_backward(&self, s: &str, start: usize) -> usize {
         let mut end = start;
 
         while end > 0 && s.chars().nth(end).unwrap_or(' ').is_alphanumeric() {

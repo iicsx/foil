@@ -13,10 +13,16 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, Paragraph},
 };
 
-pub struct BodyLayout {
-    pub parent: Paragraph<'static>,
-    pub current: Paragraph<'static>,
-    pub child: Paragraph<'static>,
+use syntect::easy::HighlightLines;
+use syntect::highlighting::ThemeSet;
+use syntect::parsing::SyntaxSet;
+use syntect::util::LinesWithEndings;
+use syntect_tui::into_span;
+
+pub struct BodyLayout<'a> {
+    pub parent: Paragraph<'a>,
+    pub current: Paragraph<'a>,
+    pub child: Paragraph<'a>,
 }
 
 pub fn get_header<'a>(block: &Block<'a>, app: &App) -> Paragraph<'a> {
@@ -53,7 +59,7 @@ pub fn get_footer<'a>(block: &Block<'a>, app: &App) -> Paragraph<'a> {
     Paragraph::new(spans).block(block.clone())
 }
 
-pub fn get_body<'a>(app: &mut App) -> BodyLayout {
+pub fn get_body<'a>(app: &'a mut App) -> BodyLayout<'a> {
     let current_dir: PathHelper = app.path.clone();
 
     let cl = current_dir.clone().get_absolute_path();
@@ -64,7 +70,7 @@ pub fn get_body<'a>(app: &mut App) -> BodyLayout {
         .get_dir_names_printable(true)
         .unwrap_or(vec![])
         .iter()
-        .map(PathHelper::trim_path)
+        .map(|s| PathHelper::trim_path(s.as_str()))
         .collect::<Vec<_>>();
 
     current_files.sort_by(|a: &String, b: &String| {
@@ -91,7 +97,7 @@ pub fn get_body<'a>(app: &mut App) -> BodyLayout {
         .get_dir_names_trimmed()
         .unwrap_or(vec![])
         .iter()
-        .map(PathHelper::trim_path)
+        .map(|s| PathHelper::trim_path(s.as_str()))
         .collect::<Vec<_>>();
 
     parent_files.sort_by(|a: &String, b: &String| {
@@ -294,7 +300,7 @@ pub fn get_line_colors(
 }
 
 pub fn get_file_preview_content<'a>(
-    app: &mut App,
+    app: &'a mut App,
     hovered_file: String,
     current_view: PathHelper,
 ) -> Vec<Line<'a>> {
@@ -314,11 +320,14 @@ pub fn get_file_preview_content<'a>(
     };
 
     let mut files = match file_type {
-        FileType::File => system::get_file_preview(hovered_file.clone(), 30)
-            .unwrap_or("Error Reading".to_string())
-            .lines()
-            .map(|line| Line::from(vec![Span::raw(line.to_string())]))
-            .collect::<Vec<_>>(),
+        FileType::File => {
+            app.child_preview = system::get_file_preview(hovered_file.clone(), 50)
+                .unwrap_or("Error Reading".to_string());
+
+            let file_extension = hovered_file.split('.').last().unwrap_or("txt").to_string();
+
+            get_styled_preview(&app.child_preview, &file_extension)
+        }
         FileType::Directory => system::get_dir_preview(hovered_file.clone())
             .unwrap_or("Error Reading".to_string())
             .lines()
@@ -361,4 +370,29 @@ pub fn get_file_preview_content<'a>(
     }
 
     files
+}
+
+fn get_styled_preview<'a>(content: &'a str, file_extension: &str) -> Vec<Line<'a>> {
+    let ps = SyntaxSet::load_defaults_newlines();
+    let ts = ThemeSet::load_defaults();
+
+    let syntax = ps
+        .find_syntax_by_extension(file_extension)
+        .unwrap_or(ps.find_syntax_plain_text());
+    let mut h = HighlightLines::new(syntax, &ts.themes["Solarized (dark)"]);
+
+    let mut lines = Vec::new();
+    for line in LinesWithEndings::from(content) {
+        let spans: Vec<Span> = h
+            .highlight_line(line, &ps)
+            .unwrap()
+            .into_iter()
+            .filter_map(|segment| into_span(segment).ok())
+            .collect();
+
+        let line = Line::from(spans);
+        lines.push(line);
+    }
+
+    lines
 }
