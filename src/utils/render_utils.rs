@@ -6,12 +6,17 @@ use crate::{
         system,
     },
 };
+use ratatui::text::{Line, Span};
 use ratatui::{
     layout::{Constraint, Flex, Layout, Rect},
     style::{Color, Style},
-    text::{Line, Span},
     widgets::{Block, BorderType, Borders, Paragraph},
 };
+use syntect::easy::HighlightLines;
+use syntect::highlighting::ThemeSet;
+use syntect::parsing::SyntaxSet;
+use syntect::util::LinesWithEndings;
+use syntect_tui::into_span;
 
 pub struct BodyLayout {
     pub parent: Paragraph<'static>,
@@ -154,12 +159,13 @@ pub fn get_body<'a>(app: &mut App) -> BodyLayout {
             .border_type(BorderType::Rounded),
     );
 
-    let right = Paragraph::new(get_file_preview_content(
+    let p = Paragraph::new(get_file_preview_content(
         app,
-        hovered_file.clone(),
+        &hovered_file.clone(),
         current_dir.clone(),
-    ))
-    .block(
+    ));
+
+    let right = p.block(
         Block::default()
             .title(if hovered_file == "../" {
                 "Parent Directory".to_string()
@@ -295,7 +301,7 @@ pub fn get_line_colors(
 
 pub fn get_file_preview_content<'a>(
     app: &mut App,
-    hovered_file: String,
+    hovered_file: &'a String,
     current_view: PathHelper,
 ) -> Vec<Line<'a>> {
     let file_type = app.get_file_type(&current_view.get_absolute_path(), &hovered_file);
@@ -314,11 +320,11 @@ pub fn get_file_preview_content<'a>(
     };
 
     let mut files = match file_type {
-        FileType::File => system::get_file_preview(hovered_file.clone(), 30)
-            .unwrap_or("Error Reading".to_string())
-            .lines()
-            .map(|line| Line::from(vec![Span::raw(line.to_string())]))
-            .collect::<Vec<_>>(),
+        FileType::File => apply_syntax_highlighting(
+            system::get_file_preview(hovered_file.clone(), 30)
+                .unwrap_or("Error Reading".to_string()),
+            &hovered_file,
+        ),
         FileType::Directory => system::get_dir_preview(hovered_file.clone())
             .unwrap_or("Error Reading".to_string())
             .lines()
@@ -361,4 +367,28 @@ pub fn get_file_preview_content<'a>(
     }
 
     files
+}
+
+pub fn apply_syntax_highlighting<'a>(file_name: String, content: &'a String) -> Vec<Line> {
+    let file_extension = file_name.split('.').last().unwrap_or("txt").to_string();
+
+    let ps = SyntaxSet::load_defaults_newlines();
+    let ts = ThemeSet::load_defaults();
+    let syntax = ps.find_syntax_by_extension(&file_extension).unwrap();
+    let mut h = HighlightLines::new(syntax, &ts.themes["base16-ocean.dark"]);
+
+    let mut lines = Vec::new();
+    for line in LinesWithEndings::from(&content) {
+        let spans: Vec<Span> = h
+            .highlight_line(line, &ps)
+            .unwrap()
+            .into_iter()
+            .filter_map(|segment| into_span(segment).ok())
+            .collect();
+
+        let line = Line::from(spans);
+        lines.push(line);
+    }
+
+    lines
 }
