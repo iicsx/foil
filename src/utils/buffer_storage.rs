@@ -11,7 +11,6 @@ pub enum State {
     Unmodified,
 }
 
-#[allow(dead_code)]
 fn get_file_type(path: &str) -> FileType {
     let metadata = fs::metadata(path);
 

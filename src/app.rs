@@ -93,7 +93,6 @@ impl Default for App<'_> {
     }
 }
 
-#[allow(dead_code)]
 impl App<'_> {
     pub fn tick(&self) {}
 
