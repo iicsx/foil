@@ -95,35 +95,6 @@ impl Default for App<'_> {
 
 #[allow(dead_code)]
 impl App<'_> {
-    fn new(mode: Mode, buffer_content: String, path: &str) -> Self {
-        let mut undo_stack = UndoStack::new();
-        undo_stack.push(buffer_content.clone(), 0, 0);
-
-        let mut buffer_storage = BufferStorage::new();
-        let _ = buffer_storage.add_view(path.to_string());
-
-        Self {
-            running: true,
-            command: None,
-            mode,
-            buffer_content: buffer_content.clone(),
-            child_preview: String::from(""),
-            buffer_storage: buffer_storage,
-            yank_buffer: YankBuffer::new(),
-            undo_stack: undo_stack,
-            path: PathHelper::new(path, &system::pwd()),
-
-            parent_pane: None,
-            current_pane: None,
-            child_pane: None,
-
-            cursor: Cursor::default(),
-            command_buffer: InputBuffer::new(),
-            need_confirmation: false,
-            rerender_dir_content: true,
-        }
-    }
-
     pub fn tick(&self) {}
 
     pub fn quit(&mut self) {
