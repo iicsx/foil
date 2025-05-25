@@ -5,6 +5,12 @@ pub struct UndoStack {
     current_index: usize,
 }
 
+impl Default for UndoStack {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl UndoStack {
     pub fn new() -> Self {
         UndoStack {

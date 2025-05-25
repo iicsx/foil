@@ -40,7 +40,7 @@ pub mod handler {
         app.yank_buffer.set_content(line.clone());
 
         if let Some(mut view) = app.buffer_storage.get_view(&current_path) {
-            view.set_state(&line.trim(), State::Deleted);
+            view.set_state(line.trim(), State::Deleted);
             app.buffer_storage.update_view(&current_path, view)
         }
     }
@@ -62,10 +62,10 @@ pub mod handler {
 
         app.yank_buffer.set_content(line.clone());
 
-        let _ = app.set_mode(Mode::Insert);
+        _ = app.set_mode(Mode::Insert);
 
         if let Some(mut view) = app.buffer_storage.get_view(&current_path) {
-            view.set_state(&line.trim(), State::Deleted);
+            view.set_state(line.trim(), State::Deleted);
             app.buffer_storage.update_view(&current_path, view)
         }
     }
@@ -96,21 +96,21 @@ pub mod handler {
         app.yank_buffer.set_content(line.clone());
 
         if let Some(mut view) = app.buffer_storage.get_view(&current_path) {
-            view.set_state(&line.trim(), State::Deleted);
+            view.set_state(line.trim(), State::Deleted);
             app.buffer_storage.update_view(&current_path, view)
         }
     }
 
     pub fn cw(app: &mut App) {
         app.delete_word(app.cursor.x - 1, app.cursor.y - 1);
-        let _ = app.set_mode(Mode::Insert);
+        _ = app.set_mode(Mode::Insert);
     }
 
     pub fn i(app: &mut App) {
         if app.cursor.x == 0 {
             app.cursor.x += 1;
         }
-        let _ = app.set_mode(Mode::Insert);
+        _ = app.set_mode(Mode::Insert);
     }
 
     #[allow(non_snake_case)]
@@ -123,7 +123,7 @@ pub mod handler {
         if app.cursor.x == 0 {
             app.cursor.x += 1;
         }
-        let _ = app.set_mode(Mode::Insert);
+        _ = app.set_mode(Mode::Insert);
 
         app.cursor.right(0);
     }
@@ -139,7 +139,7 @@ pub mod handler {
         app.insert_at(app.cursor.x, app.cursor.y - 1, "\n "); // whitespace is needed to actually start a new line, do not remove!!!
         app.cursor.down();
         app.cursor.reset_x();
-        let _ = app.set_mode(Mode::Insert);
+        _ = app.set_mode(Mode::Insert);
     }
 
     #[allow(non_snake_case)]
@@ -151,7 +151,7 @@ pub mod handler {
             app.cursor.reset_x();
         }
 
-        let _ = app.set_mode(Mode::Insert);
+        _ = app.set_mode(Mode::Insert);
     }
 
     pub fn j(app: &mut App) -> Result<(), std::io::Error> {
@@ -222,10 +222,10 @@ pub mod handler {
             .nth(app.cursor.y as usize - 1)
             .unwrap_or("");
         let x = app.cursor.x as usize;
-        let new_x = app.get_end_x(&line.to_string(), x, true);
+        let new_x = app.get_end_x(line, x, true);
 
         if new_x - 1 == app.get_line_length(app.cursor.y - 1).unwrap_or(0)
-            && (app.cursor.y.try_into().unwrap_or(0) < app.get_line_count())
+            && (usize::from(app.cursor.y) < app.get_line_count())
         {
             app.cursor.down();
             app.cursor.reset_x();
@@ -250,7 +250,7 @@ pub mod handler {
                 .try_into()
                 .unwrap_or(1);
         } else {
-            let new_x = app.get_start_x(&line.to_string(), x);
+            let new_x = app.get_start_x(line, x);
             app.cursor.move_word(line, new_x);
         }
     }
@@ -271,7 +271,7 @@ pub mod handler {
 
     pub fn s(app: &mut App) {
         x(app);
-        let _ = app.set_mode(Mode::Insert);
+        _ = app.set_mode(Mode::Insert);
     }
 
     pub fn cj(app: &mut App) {
@@ -309,8 +309,8 @@ pub mod handler {
         };
 
         let x = app.cursor.x as usize;
-        let start_index = app.seek_special_character_backward(&line.to_string(), x);
-        let end_index = app.seek_special_character_forward(&line.to_string(), x);
+        let start_index = app.seek_special_character_backward(&line, x);
+        let end_index = app.seek_special_character_forward(&line, x);
 
         app.delete_range(
             start_index.try_into().unwrap_or(0),
@@ -324,14 +324,14 @@ pub mod handler {
         app.yank_buffer.set_content(line.to_string());
 
         if let Some(mut view) = app.buffer_storage.get_view(&current_path) {
-            view.set_state(&line.trim(), State::Deleted);
+            view.set_state(line.trim(), State::Deleted);
             app.buffer_storage.update_view(&current_path, view)
         }
     }
 
     pub fn ciw(app: &mut App) {
         diw(app);
-        let _ = app.set_mode(Mode::Insert);
+        _ = app.set_mode(Mode::Insert);
     }
 
     pub fn u(app: &mut App) {
@@ -357,8 +357,8 @@ pub mod handler {
             .unwrap_or("");
 
         let x = app.cursor.x as usize;
-        let start_index = app.seek_special_character_backward(&line.to_string(), x);
-        let end_index = app.seek_special_character_forward(&line.to_string(), x);
+        let start_index = app.seek_special_character_backward(line, x);
+        let end_index = app.seek_special_character_forward(line, x);
 
         let content = &line[start_index..end_index];
         app.yank_buffer.set_content(content.to_string());
@@ -385,7 +385,7 @@ pub mod handler {
                 app.cursor.reset_x();
 
                 if let Some(mut view) = app.buffer_storage.get_view(&current_path) {
-                    view.set_state(&content.trim(), State::Moved);
+                    view.set_state(content.trim(), State::Moved);
                     view.set_path(&content, &current_path);
                     app.buffer_storage.update_view(&current_path, view)
                 }

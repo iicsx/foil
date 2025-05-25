@@ -67,7 +67,7 @@ pub fn get_body<'a>(app: &'a mut App) -> BodyLayout<'a> {
 
     let mut current_files = current_dir
         .get_dir_names_printable(true)
-        .unwrap_or(vec![])
+        .unwrap_or_default()
         .iter()
         .map(|s| PathHelper::trim_path(s.as_str()))
         .collect::<Vec<_>>();
@@ -91,10 +91,10 @@ pub fn get_body<'a>(app: &'a mut App) -> BodyLayout<'a> {
     }
 
     let mut parent_dir: PathHelper = current_dir.clone();
-    let _ = parent_dir.cd("..");
+    parent_dir.cd("..");
     let mut parent_files: Vec<String> = parent_dir
         .get_dir_names_trimmed()
-        .unwrap_or(vec![])
+        .unwrap_or_default()
         .iter()
         .map(|s| PathHelper::trim_path(s.as_str()))
         .collect::<Vec<_>>();
@@ -306,11 +306,11 @@ pub fn get_file_preview_content<'a>(
     let file_type = app.get_file_type(&current_view.get_absolute_path(), &hovered_file);
 
     let mut child_view = current_view.clone();
-    let _ = child_view.cd(&hovered_file);
+    child_view.cd(&hovered_file);
     let child_view = match app.buffer_storage.get_view(&child_view.get_absolute_path()) {
         Some(view) => view,
         None => {
-            let _ = app.buffer_storage.add_view(child_view.get_absolute_path());
+            _ = app.buffer_storage.add_view(child_view.get_absolute_path());
 
             app.buffer_storage
                 .get_view(&child_view.get_absolute_path())
@@ -323,7 +323,11 @@ pub fn get_file_preview_content<'a>(
             app.child_preview = system::get_file_preview(hovered_file.clone(), 50)
                 .unwrap_or("Error Reading".to_string());
 
-            let file_extension = hovered_file.split('.').last().unwrap_or("txt").to_string();
+            let file_extension = hovered_file
+                .split('.')
+                .next_back()
+                .unwrap_or("txt")
+                .to_string();
 
             get_styled_preview(&app.child_preview, &file_extension)
         }

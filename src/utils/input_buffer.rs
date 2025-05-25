@@ -7,6 +7,12 @@ pub struct InputBuffer {
     pattern: String,
 }
 
+impl Default for InputBuffer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl InputBuffer {
     pub fn new() -> Self {
         InputBuffer {

@@ -86,10 +86,7 @@ impl DirBuffer {
             }
         }
 
-        Ok(DirBuffer {
-            dir: String::from(dir),
-            files,
-        })
+        Ok(DirBuffer { dir, files })
     }
 
     pub fn from_raw(raw: &str) -> Self {
@@ -206,18 +203,14 @@ impl DirBuffer {
 
     // these two might be unused tbh
     pub fn get_file_move_dirs(&self, name: &str) -> Option<(String, String)> {
-        if let Some(file) = self.files.get(name) {
-            Some((file.original_dir.clone(), file.dir.clone()))
-        } else {
-            None
-        }
+        self.files
+            .get(name)
+            .map(|file| (file.original_dir.clone(), file.dir.clone()))
     }
     pub fn get_rename(&self, name: &str) -> Option<(String, String)> {
-        if let Some(file) = self.files.get(name) {
-            Some((file.original_name.clone(), file.name.clone()))
-        } else {
-            None
-        }
+        self.files
+            .get(name)
+            .map(|file| (file.original_name.clone(), file.name.clone()))
     }
 
     pub fn get_file(&self, name: &str) -> Option<FileEntry> {
@@ -230,6 +223,12 @@ pub struct BufferStorage {
     pub views: HashMap<String, DirBuffer>,
 }
 
+impl Default for BufferStorage {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BufferStorage {
     pub fn new() -> Self {
         BufferStorage {
@@ -238,7 +237,7 @@ impl BufferStorage {
     }
 
     pub fn add_view(&mut self, dir: String) -> Result<(), std::io::Error> {
-        if let Some(_) = self.get_view(&dir) {
+        if self.get_view(&dir).is_some() {
             return Ok(());
         }
 

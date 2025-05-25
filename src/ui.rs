@@ -29,7 +29,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     let header = render_utils::get_header(&default_block, app);
     frame.render_widget(header, chunks[0]);
 
-    let footer = render_utils::get_footer(&bordered_block, &app);
+    let footer = render_utils::get_footer(&bordered_block, app);
     frame.render_widget(footer, chunks[2]);
 
     let body_chunks = Layout::default()

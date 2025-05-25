@@ -12,6 +12,12 @@ pub struct YankBuffer {
     pub yank_type: YankType,
 }
 
+impl Default for YankBuffer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl YankBuffer {
     pub fn new() -> Self {
         Self {

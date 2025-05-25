@@ -25,13 +25,13 @@ async fn main() -> AppResult<()> {
     let mut tui = Tui::new(terminal, events);
     tui.init()?;
 
-    let _ = crossterm::execute!(std::io::stdout(), SetCursorStyle::SteadyBlock);
+    _ = crossterm::execute!(std::io::stdout(), SetCursorStyle::SteadyBlock);
 
     app.path = file_helper::PathHelper::new(".", &system::pwd());
     app.buffer_storage.add_view(app.path.get_absolute_path())?;
     let parent = match app.path.get_parent() {
-        Ok(path) => path,
-        Err(_) => file_helper::PathHelper::new("..", &system::pwd()),
+        Some(path) => path,
+        None => file_helper::PathHelper::new("..", &system::pwd()),
     };
     app.buffer_storage.add_view(parent.get_absolute_path())?;
 

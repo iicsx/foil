@@ -10,12 +10,12 @@ use crossterm::{cursor::SetCursorStyle, execute};
 /// Handles the key events and updates the state of [`App`].
 pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
     if app.need_confirmation {
-        let _ = handle_confirm(&key_event, app);
+        _ = handle_confirm(&key_event, app);
         app.command_buffer.clear();
         return Ok(());
     }
 
-    let result = match app.mode {
+    match app.mode {
         Mode::Normal => handle_normal_mode(key_event, app),
         Mode::Insert => handle_insert_mode(key_event, app),
         Mode::Command => handle_command_mode(key_event, app),
@@ -23,9 +23,7 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         Mode::VisualBlock => handle_visual_block_mode(key_event, app),
         Mode::VisualLine => handle_visual_line_mode(key_event, app),
         Mode::Pending => handle_pending_mode(key_event, app),
-    };
-
-    result
+    }
 }
 
 fn handle_normal_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
@@ -39,7 +37,7 @@ fn handle_normal_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         .command_buffer
         .is_initializer(&key_event.code.to_string());
 
-    if (buffer_empty && is_valid_init) || (!buffer_empty) {
+    if !buffer_empty || is_valid_init {
         handle_compound_inputs(key_event, app)?;
         return Ok(());
     }
@@ -86,7 +84,7 @@ fn handle_normal_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
                     .unwrap_or("")
                     .to_string()
             };
-            let _ = app.path.cd(&line);
+            _ = app.path.cd(&line);
             app.buffer_storage.add_view(app.path.get_absolute_path())?;
 
             app.rerender_dir_content = true;
@@ -105,7 +103,7 @@ fn handle_insert_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         KeyCode::Esc => {
             app.cursor.left();
             app.set_mode(Mode::Normal)?;
-            let _ = execute!(std::io::stdout(), SetCursorStyle::SteadyBlock);
+            _ = execute!(std::io::stdout(), SetCursorStyle::SteadyBlock);
         }
         KeyCode::Char(' ') => {
             app.insert_at(app.cursor.x - 1, app.cursor.y - 1, " ");
@@ -118,10 +116,8 @@ fn handle_insert_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
             if app.cursor.x <= 1 {
                 let max_x = app.get_line_length(app.cursor.y - 2).unwrap_or(0);
 
-                app.buffer_content = app.merge_lines(
-                    app.cursor.y.try_into().unwrap_or(0) - 2,
-                    app.cursor.y.try_into().unwrap_or(0) - 1,
-                )?;
+                app.buffer_content =
+                    app.merge_lines(usize::from(app.cursor.y) - 2, usize::from(app.cursor.y) - 1)?;
                 app.cursor.up();
                 app.cursor.x = max_x.try_into().unwrap_or(0) + 1;
             } else {
@@ -164,7 +160,7 @@ fn handle_command_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
                 "w" => {
                     app.save();
                     app.command = None;
-                    let _ = app.set_mode(Mode::Normal)?;
+                    app.set_mode(Mode::Normal)?;
                     return Ok(());
                 }
                 "wq" => {
@@ -187,7 +183,7 @@ fn handle_command_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         }
         KeyCode::Backspace => {
             if let Some(cmd) = &mut app.command {
-                if cmd.len() > 0 {
+                if !cmd.is_empty() {
                     cmd.pop();
                 }
             }
@@ -204,7 +200,7 @@ fn handle_command_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
     match &app.command {
         Some(cmd) => {
             let code = key_event.code.to_string();
-            if code.len() != 1 || !code.chars().nth(0).unwrap_or(' ').is_alphanumeric() {
+            if code.len() != 1 || !code.chars().next().unwrap_or(' ').is_alphanumeric() {
                 return Ok(());
             }
 
@@ -226,7 +222,7 @@ fn handle_visual_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         KeyCode::Esc => {
             app.cursor.left();
             app.set_mode(Mode::Normal)?;
-            let _ = execute!(std::io::stdout(), SetCursorStyle::SteadyBlock);
+            _ = execute!(std::io::stdout(), SetCursorStyle::SteadyBlock);
         }
         _ => {}
     };
@@ -238,7 +234,7 @@ fn handle_visual_block_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()>
     match key_event.code {
         KeyCode::Esc => {
             app.cursor.left();
-            let _ = app.set_mode(Mode::Normal)?;
+            app.set_mode(Mode::Normal)?;
         }
         _ => {}
     };
@@ -250,7 +246,7 @@ fn handle_visual_line_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> 
     match key_event.code {
         KeyCode::Esc => {
             app.cursor.left();
-            let _ = app.set_mode(Mode::Normal)?;
+            app.set_mode(Mode::Normal)?;
         }
         _ => {}
     };
@@ -262,7 +258,7 @@ fn handle_pending_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
     match key_event.code {
         KeyCode::Esc => {
             app.cursor.left();
-            let _ = app.set_mode(Mode::Normal)?;
+            app.set_mode(Mode::Normal)?;
             app.command_buffer.clear();
         }
         _ => handle_compound_inputs(key_event, app)?,
@@ -279,7 +275,7 @@ fn handle_compound_inputs(
         return Ok(());
     }
 
-    let _ = app.set_mode(Mode::Pending)?;
+    app.set_mode(Mode::Pending)?;
 
     let captured_buffer_content = app.buffer_content.clone();
 
@@ -290,7 +286,7 @@ fn handle_compound_inputs(
 
         // set mode to normal BEFORE motion executes as it might change the mode
         // this is just to ensure we don't stay in pending mode
-        let _ = app.set_mode(Mode::Normal)?;
+        app.set_mode(Mode::Normal)?;
 
         // Line 1 has '../' and is immutable
         if app.cursor.y == 1 {
@@ -339,34 +335,34 @@ pub fn handle_confirm(key_event: &KeyEvent, app: &mut App) -> AppResult<()> {
             let files_to_move = app.get_files(State::Created);
 
             for file in files_to_delete {
-                let _ = system::delete_file(condense_path_name(file))?;
+                _ = system::delete_file(condense_path_name(file))?;
             }
             for file in files_to_rename {
                 let new_file_name = file.name.clone().trim().to_string();
-                let _ = system::rename_file(file.original_name.clone(), new_file_name)?;
+                _ = system::rename_file(file.original_name.clone(), new_file_name)?;
             }
             for file in files_to_create {
                 let new_file_name = file.name.clone().trim().to_string();
-                let _ = system::create_file(new_file_name)?;
+                _ = system::create_file(new_file_name)?;
             }
             for file in files_to_move {
                 let new_file_name = file.name.clone().trim().to_string();
-                let _ = system::move_file(file.original_name.clone(), new_file_name)?;
+                _ = system::move_file(file.original_name.clone(), new_file_name)?;
             }
 
             app.command = None;
-            let _ = app.set_mode(Mode::Normal)?;
+            app.set_mode(Mode::Normal)?;
             app.need_confirmation = false;
         }
         KeyCode::Char('n') => {
             app.command = None;
-            let _ = app.set_mode(Mode::Normal)?;
+            app.set_mode(Mode::Normal)?;
             app.need_confirmation = false;
         }
         KeyCode::Esc => {
             app.command = None;
             app.need_confirmation = false;
-            let _ = app.set_mode(Mode::Normal)?;
+            app.set_mode(Mode::Normal)?;
             app.need_confirmation = false;
         }
         _ => {}
@@ -389,7 +385,7 @@ fn condense_path_name(file: FileEntry) -> String {
     };
 
     if file.file_type == FileType::Directory {
-        name = name + "/";
+        name += "/";
     }
 
     name
