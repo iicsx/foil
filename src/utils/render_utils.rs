@@ -12,12 +12,11 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, Paragraph},
 };
-
 use syntect::easy::HighlightLines;
 use syntect::highlighting::ThemeSet;
 use syntect::parsing::SyntaxSet;
 use syntect::util::LinesWithEndings;
-use syntect_tui::into_span;
+use syntect_tui;
 
 pub struct BodyLayout<'a> {
     pub parent: Paragraph<'a>,
@@ -387,7 +386,7 @@ fn get_styled_preview<'a>(content: &'a str, file_extension: &str) -> Vec<Line<'a
             .highlight_line(line, &ps)
             .unwrap()
             .into_iter()
-            .filter_map(|segment| into_span(segment).ok())
+            .filter_map(|segment| syntect_tui::into_span(segment).ok())
             .collect();
 
         let line = Line::from(spans);

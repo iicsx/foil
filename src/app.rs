@@ -7,7 +7,7 @@ use crate::utils::{
     undo_stack::UndoStack,
     yank_buffer::YankBuffer,
 };
-use crossterm::{cursor::SetCursorStyle, execute};
+use crossterm::cursor::SetCursorStyle;
 use ratatui::widgets::Paragraph;
 use std::{error, fmt, result::Result};
 
@@ -105,11 +105,13 @@ impl App<'_> {
         self.mode = mode.clone();
 
         match mode {
-            Mode::Normal => execute!(std::io::stdout(), SetCursorStyle::SteadyBlock)?,
-            Mode::Visual => execute!(std::io::stdout(), SetCursorStyle::SteadyBlock)?,
-            Mode::Pending => execute!(std::io::stdout(), SetCursorStyle::SteadyUnderScore)?,
-            Mode::Insert => execute!(std::io::stdout(), SetCursorStyle::BlinkingBar)?,
-            _ => execute!(std::io::stdout(), SetCursorStyle::SteadyBlock)?,
+            Mode::Normal => crossterm::execute!(std::io::stdout(), SetCursorStyle::SteadyBlock)?,
+            Mode::Visual => crossterm::execute!(std::io::stdout(), SetCursorStyle::SteadyBlock)?,
+            Mode::Pending => {
+                crossterm::execute!(std::io::stdout(), SetCursorStyle::SteadyUnderScore)?
+            }
+            Mode::Insert => crossterm::execute!(std::io::stdout(), SetCursorStyle::BlinkingBar)?,
+            _ => crossterm::execute!(std::io::stdout(), SetCursorStyle::SteadyBlock)?,
         };
 
         Ok(())
@@ -119,12 +121,8 @@ impl App<'_> {
         let trimmed = self.buffer_content.trim_end();
 
         match trimmed.rfind(' ') {
-            Some(last_space_index) => {
-                self.buffer_content.truncate(last_space_index);
-            }
-            None => {
-                self.buffer_content.clear();
-            }
+            Some(last_space_index) => self.buffer_content.truncate(last_space_index),
+            None => self.buffer_content.clear(),
         }
     }
 

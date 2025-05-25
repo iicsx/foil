@@ -1,15 +1,12 @@
-use std::io;
-
-use crossterm::{cursor::SetCursorStyle, execute};
-use ratatui::{backend::CrosstermBackend, Terminal};
-
 use crate::{
     app::{App, AppResult},
     event::{Event, EventHandler},
-    handler::handle_key_events,
     tui::Tui,
     utils::{file_helper, system},
 };
+use crossterm::cursor::SetCursorStyle;
+use ratatui::{backend::CrosstermBackend, Terminal};
+use std::io;
 
 pub mod app;
 pub mod event;
@@ -28,7 +25,7 @@ async fn main() -> AppResult<()> {
     let mut tui = Tui::new(terminal, events);
     tui.init()?;
 
-    let _ = execute!(std::io::stdout(), SetCursorStyle::SteadyBlock);
+    let _ = crossterm::execute!(std::io::stdout(), SetCursorStyle::SteadyBlock);
 
     app.path = file_helper::PathHelper::new(".", &system::pwd());
     app.buffer_storage.add_view(app.path.get_absolute_path())?;
@@ -43,7 +40,7 @@ async fn main() -> AppResult<()> {
 
         match tui.events.next().await? {
             Event::Tick => app.tick(),
-            Event::Key(key_event) => handle_key_events(key_event, &mut app)?,
+            Event::Key(key_event) => handler::handle_key_events(key_event, &mut app)?,
             Event::Mouse(_) => {}
             Event::Resize(_, _) => {}
         }

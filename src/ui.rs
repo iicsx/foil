@@ -1,7 +1,5 @@
 use crate::app::App;
-use crate::utils::render_utils::{
-    get_body, get_confirmation_content, get_footer, get_header, popup_area, BodyLayout,
-};
+use crate::utils::render_utils;
 use ratatui::{
     layout::{Constraint, Direction, Layout},
     prelude::Position,
@@ -28,10 +26,10 @@ pub fn render(app: &mut App, frame: &mut Frame) {
 
     let default_block = Block::default().style(Style::default());
 
-    let header = get_header(&default_block, app);
+    let header = render_utils::get_header(&default_block, app);
     frame.render_widget(header, chunks[0]);
 
-    let footer = get_footer(&bordered_block, &app);
+    let footer = render_utils::get_footer(&bordered_block, &app);
     frame.render_widget(footer, chunks[2]);
 
     let body_chunks = Layout::default()
@@ -43,7 +41,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
         ])
         .split(chunks[1]);
 
-    let body: BodyLayout = get_body(app);
+    let body = render_utils::get_body(app);
     frame.render_widget(body.parent, body_chunks[0]);
     frame.render_widget(body.current, body_chunks[1]);
     frame.render_widget(body.child, body_chunks[2]);
@@ -57,14 +55,14 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     frame.set_cursor_position(position);
 
     if app.need_confirmation {
-        let area = popup_area(frame.area(), 40, 20);
+        let area = render_utils::popup_area(frame.area(), 40, 20);
 
         let block = Block::bordered()
             .title(Line::from(" Confirm (y/n) ").centered())
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded);
 
-        let content = get_confirmation_content(&block, app);
+        let content = render_utils::get_confirmation_content(&block, app);
 
         frame.render_widget(Clear, area); //this clears out the background
         frame.render_widget(content, area);
