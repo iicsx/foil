@@ -118,7 +118,7 @@ pub fn get_body<'a>(app: &'a mut App) -> BodyLayout<'a> {
                     get_line_colors(app, &parent_dir.get_absolute_path(), line, &current_folder);
 
                 Line::from(vec![Span::styled(
-                    format!("{:<width$}", line, width = u16::MAX as usize),
+                    format!("{:<width$}", line, width = usize::from(u16::MAX)),
                     Style::default().bg(bg).fg(fg),
                 )])
             })
@@ -146,7 +146,7 @@ pub fn get_body<'a>(app: &'a mut App) -> BodyLayout<'a> {
                 let (bg, fg) = get_line_colors(app, current_view, line, &hovered_file);
 
                 Line::from(Span::styled(
-                    format!("{:<width$}", line, width = u16::MAX as usize),
+                    format!("{:<width$}", line, width = usize::from(u16::MAX)),
                     Style::default().bg(bg).fg(fg),
                 ))
             })

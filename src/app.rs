@@ -132,9 +132,9 @@ impl App<'_> {
     pub fn insert_at(&mut self, x: u16, y: u16, content: &str) {
         let mut lines: Vec<String> = self.buffer_content.lines().map(String::from).collect();
 
-        let line = &mut lines[y as usize];
+        let line = &mut lines[usize::from(y)];
 
-        if x as usize > line.len() {
+        if usize::from(x) > line.len() {
             return;
         }
 
@@ -159,17 +159,17 @@ impl App<'_> {
 
     pub fn delete_at(&mut self, x: u16, y: u16) {
         let mut lines: Vec<String> = self.buffer_content.lines().map(String::from).collect();
-        if y as usize >= lines.len() {
+        if usize::from(y) >= lines.len() {
             return;
         }
 
-        let line = &mut lines[y as usize];
-        if x as usize >= line.len() {
+        let line = &mut lines[usize::from(y)];
+        if usize::from(x) >= line.len() {
             return;
         }
         let identifier = line.clone();
 
-        line.remove(x as usize);
+        line.remove(usize::from(x));
 
         let view = self.buffer_storage.get_view(&self.path.get_absolute_path());
         if let Some(mut view) = view {
@@ -184,19 +184,19 @@ impl App<'_> {
     pub fn delete_range(&mut self, x: u16, y: u16, length: usize) {
         let mut lines: Vec<String> = self.buffer_content.lines().map(String::from).collect();
 
-        if y as usize >= lines.len() {
+        if usize::from(y) >= lines.len() {
             return;
         }
 
-        let line = &mut lines[y as usize];
+        let line = &mut lines[usize::from(y)];
 
-        if x as usize >= line.len() {
+        if usize::from(x) >= line.len() {
             return;
         }
 
         let end = (x + length as u16).min(line.len() as u16);
 
-        line.replace_range(x as usize..end as usize, "");
+        line.replace_range(usize::from(x)..usize::from(end), "");
 
         self.buffer_content = lines.join("\n");
     }
@@ -204,11 +204,11 @@ impl App<'_> {
     pub fn delete_line_full(&mut self, y: u16) {
         let mut lines: Vec<&str> = self.buffer_content.lines().collect();
 
-        if y as usize >= lines.len() {
+        if usize::from(y) >= lines.len() {
             return;
         }
 
-        lines.remove(y as usize);
+        lines.remove(usize::from(y));
 
         self.buffer_content = lines.join("\n");
     }
@@ -220,11 +220,11 @@ impl App<'_> {
             .map(|line| line.to_string())
             .collect();
 
-        if y as usize >= lines.len() {
+        if usize::from(y) >= lines.len() {
             return;
         }
 
-        lines[y as usize].clear();
+        lines[usize::from(y)].clear();
 
         self.buffer_content = lines.join("\n");
     }
@@ -234,7 +234,7 @@ impl App<'_> {
 
         let new_x = self
             .get_line_length(self.cursor.y - 1)
-            .unwrap_or(NEUTRAL_ELEMENT as usize)
+            .unwrap_or(usize::from(NEUTRAL_ELEMENT))
             .try_into()
             .unwrap_or(NEUTRAL_ELEMENT);
 
@@ -286,19 +286,19 @@ impl App<'_> {
     pub fn delete_word(&mut self, x: u16, y: u16) {
         let mut lines: Vec<String> = self.buffer_content.lines().map(String::from).collect();
 
-        if y as usize >= lines.len() {
+        if usize::from(y) >= lines.len() {
             return;
         }
 
-        let line = &mut lines[y as usize];
+        let line = &mut lines[usize::from(y)];
 
-        if x as usize >= line.len() || line.is_empty() {
+        if usize::from(x) >= line.len() || line.is_empty() {
             return;
         }
 
-        let end = self.get_end_x(line, x as usize, false);
+        let end = self.get_end_x(line, usize::from(x), false);
 
-        line.replace_range(x as usize..end, "");
+        line.replace_range(usize::from(x)..end, "");
 
         self.buffer_content = lines.join("\n");
     }
@@ -329,11 +329,11 @@ impl App<'_> {
     pub fn get_line_length(&self, y: u16) -> Result<usize, std::io::Error> {
         let lines: Vec<&str> = self.buffer_content.lines().collect();
 
-        if y as usize >= lines.len() {
+        if usize::from(y) >= lines.len() {
             return Err(std::io::Error::other("Line out of bounds"));
         }
 
-        let line = lines[y as usize];
+        let line = lines[usize::from(y)];
 
         Ok(line.chars().count())
     }
@@ -341,14 +341,14 @@ impl App<'_> {
     pub fn get_hovered_filename(&self) -> String {
         let lines: Vec<&str> = self.buffer_content.lines().collect();
 
-        if self.cursor.y as usize > lines.len() {
+        if usize::from(self.cursor.y) > lines.len() {
             return String::new();
         }
 
         let y = usize::from(self.cursor.y.max(1) - 1);
         let line = lines[y];
 
-        if self.cursor.x as usize > line.chars().count() {
+        if usize::from(self.cursor.x) > line.chars().count() {
             return String::new();
         }
 

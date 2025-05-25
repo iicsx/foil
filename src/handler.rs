@@ -80,7 +80,7 @@ fn handle_normal_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
                 let buffer_content = &app.buffer_content;
                 buffer_content
                     .lines()
-                    .nth(app.cursor.y as usize - 1)
+                    .nth(usize::from(app.cursor.y) - 1)
                     .unwrap_or("")
                     .to_string()
             };

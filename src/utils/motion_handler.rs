@@ -11,7 +11,7 @@ pub mod handler {
             let buffer_content = &app.buffer_content;
             buffer_content
                 .lines()
-                .nth(app.cursor.y as usize - 1)
+                .nth(usize::from(app.cursor.y) - 1)
                 .unwrap_or("")
                 .to_string()
         };
@@ -52,7 +52,7 @@ pub mod handler {
             let buffer_content = &app.buffer_content;
             buffer_content
                 .lines()
-                .nth(app.cursor.y as usize - 1)
+                .nth(usize::from(app.cursor.y) - 1)
                 .unwrap_or("")
                 .to_string()
         };
@@ -76,7 +76,7 @@ pub mod handler {
             let buffer_content = &app.buffer_content;
             buffer_content
                 .lines()
-                .nth(app.cursor.y as usize - 1)
+                .nth(usize::from(app.cursor.y) - 1)
                 .unwrap_or("")
                 .to_string()
         };
@@ -219,9 +219,9 @@ pub mod handler {
         let line = app
             .buffer_content
             .lines()
-            .nth(app.cursor.y as usize - 1)
+            .nth(usize::from(app.cursor.y) - 1)
             .unwrap_or("");
-        let x = app.cursor.x as usize;
+        let x = usize::from(app.cursor.x);
         let new_x = app.get_end_x(line, x, true);
 
         if new_x - 1 == app.get_line_length(app.cursor.y - 1).unwrap_or(0)
@@ -238,9 +238,9 @@ pub mod handler {
         let line = app
             .buffer_content
             .lines()
-            .nth(app.cursor.y as usize - 1)
+            .nth(usize::from(app.cursor.y) - 1)
             .unwrap_or("");
-        let x = app.cursor.x as usize;
+        let x = usize::from(app.cursor.x);
 
         if x <= 1 && app.cursor.y > 1 {
             app.cursor.up();
@@ -303,12 +303,12 @@ pub mod handler {
             let buffer_content = &app.buffer_content;
             buffer_content
                 .lines()
-                .nth(app.cursor.y as usize - 1)
+                .nth(usize::from(app.cursor.y) - 1)
                 .unwrap_or("")
                 .to_string()
         };
 
-        let x = app.cursor.x as usize;
+        let x = usize::from(app.cursor.x);
         let start_index = app.seek_special_character_backward(&line, x);
         let end_index = app.seek_special_character_forward(&line, x);
 
@@ -342,7 +342,7 @@ pub mod handler {
         let line = app
             .buffer_content
             .lines()
-            .nth(app.cursor.y as usize - 1)
+            .nth(usize::from(app.cursor.y) - 1)
             .unwrap_or("");
 
         app.yank_buffer.set_content(line.to_string());
@@ -353,10 +353,10 @@ pub mod handler {
         let line = app
             .buffer_content
             .lines()
-            .nth(app.cursor.y as usize - 1)
+            .nth(usize::from(app.cursor.y) - 1)
             .unwrap_or("");
 
-        let x = app.cursor.x as usize;
+        let x = usize::from(app.cursor.x);
         let start_index = app.seek_special_character_backward(line, x);
         let end_index = app.seek_special_character_forward(line, x);
 

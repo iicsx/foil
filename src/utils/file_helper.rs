@@ -169,11 +169,11 @@ impl PathHelper {
         let dir_entries = self.get_dir_names()?;
         let count = dir_entries.len();
 
-        if y as usize >= count {
+        if usize::from(y) >= count {
             return Err(io::Error::other("y is out of bounds"));
         }
 
-        let entry = &dir_entries[y as usize];
+        let entry = &dir_entries[usize::from(y)];
         let name = entry.file_name();
 
         match name.into_string() {
