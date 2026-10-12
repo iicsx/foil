@@ -1,4 +1,5 @@
-use std::process;
+use std::{fs, io::{BufRead, BufReader}, process};
+use std::path::Path;
 
 pub fn whoami() -> String {
     let output = std::process::Command::new("whoami").output();
@@ -80,49 +81,28 @@ pub fn get_file_permissions() -> String {
 }
 
 pub fn get_file_permission(file_name: String) -> String {
-    let output = std::process::Command::new("ls")
-        .arg("-l")
-        .arg(file_name)
-        .output()
-        .expect("Failed to execute command");
-
-    let permissions = String::from_utf8_lossy(&output.stdout);
-
-    let mut res = String::new();
-    for line in permissions.lines() {
-        if line.trim().starts_with("total") {
-            continue;
-        }
-
-        let string: Vec<&str> = line.split(" ").collect();
-
-        res = string[0].trim().to_string()
-    }
-
-    res
+    use std::os::unix::fs::PermissionsExt;
+    fs::metadata(file_name)
+        .map(|metadata| format!("{:o}", metadata.permissions().mode() & 0o7777))
+        .unwrap_or_default()
 }
 
 pub fn get_file_size(filename: String) -> String {
-    let output = std::process::Command::new("du")
-        .arg("-sh")
-        .arg(filename)
-        .output()
-        .expect("Failed to execute command");
+    fs::metadata(filename)
+        .map(|metadata| human_size(metadata.len()))
+        .unwrap_or_default()
+}
 
-    let size = String::from_utf8_lossy(&output.stdout);
-
-    let mut res = String::new();
-    for line in size.lines() {
-        if line.trim().starts_with("total") {
-            continue;
-        }
-
-        let string: Vec<&str> = line.split("\t").collect();
-
-        res = string[0].trim().to_string()
+fn human_size(bytes: u64) -> String {
+    const UNITS: [&str; 5] = ["B", "K", "M", "G", "T"];
+    let mut size = bytes as f64;
+    let mut unit = 0;
+    while size >= 1024.0 && unit < UNITS.len() - 1 {
+        size /= 1024.0;
+        unit += 1;
     }
-
-    res
+    if unit == 0 { format!("{}{}", bytes, UNITS[unit]) }
+    else { format!("{:.1}{}", size, UNITS[unit]) }
 }
 
 pub fn delete_file(file_name: String) -> Result<String, std::io::Error> {
@@ -173,44 +153,23 @@ pub fn move_file(file_name: String, new_dir: String) -> Result<String, std::io::
 }
 
 pub fn get_file_preview(file_name: String, max_lines: usize) -> Result<String, std::io::Error> {
-    let output = std::process::Command::new("head")
-        .arg("-n")
-        .arg(max_lines.to_string())
-        .arg(file_name)
-        .output()?;
-
-    let result = String::from_utf8_lossy(&output.stdout);
-
-    if result.len() == 0 || result.starts_with("head: error") {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "File not found",
-        ));
+    let file = fs::File::open(file_name)?;
+    let preview = BufReader::new(file)
+        .lines()
+        .take(max_lines)
+        .collect::<Result<Vec<_>, _>>()?
+        .join("\n");
+    if preview.is_empty() {
+        return Err(std::io::Error::new(std::io::ErrorKind::Other, "File is empty"));
     }
-
-    Ok(result.trim().to_string())
+    Ok(preview)
 }
 
 pub fn get_dir_preview(dir_name: String) -> Result<String, std::io::Error> {
-    let output = std::process::Command::new("ls")
-        .arg("-l")
-        .arg(dir_name)
-        .output()?;
-
-    let result = String::from_utf8_lossy(&output.stdout);
-
-    let lines = result.lines();
-    let mut res = vec![];
-    for line in lines {
-        if line.starts_with("total") {
-            continue;
-        }
-
-        let parts = line.split_whitespace().collect::<Vec<&str>>();
-        let file_name = parts.last().unwrap_or(&"").to_string();
-
-        res.push(file_name.to_string());
-    }
-
-    Ok(res.join("\n"))
+    let mut entries = fs::read_dir(Path::new(&dir_name))?
+        .filter_map(Result::ok)
+        .filter_map(|entry| entry.file_name().into_string().ok())
+        .collect::<Vec<_>>();
+    entries.sort();
+    Ok(entries.join("\n"))
 }

@@ -19,7 +19,7 @@ pub struct BodyLayout<'a> {
 
 pub fn get_header<'a>(block: &Block<'a>, app: &App) -> Paragraph<'a> {
     let spans = Line::from(vec![
-        Span::styled(get_hostname(), Style::default().fg(Color::Yellow)),
+        Span::styled(app.hostname.clone(), Style::default().fg(Color::Yellow)),
         Span::styled(
             format!(" {}", get_dirname(app)),
             Style::default().fg(Color::Blue),
@@ -38,11 +38,25 @@ pub fn get_footer<'a>(block: &Block<'a>, app: &App) -> Paragraph<'a> {
         _ => Line::from(vec![
             Span::styled(format!("{}", app.mode), Style::default().fg(Color::White)),
             Span::styled(
-                format!(" {}        ", get_current_file_permissions(app)),
+                format!(
+                    " {}        ",
+                    system::get_file_permission(format!(
+                        "{}/{}",
+                        app.path.get_path_str(),
+                        app.get_hovered_filename()
+                    ))
+                ),
                 Style::default().fg(Color::Magenta),
             ),
             Span::styled(
-                format!(" {}        ", get_current_file_size(app)),
+                format!(
+                    " {}        ",
+                    system::get_file_size(format!(
+                        "{}/{}",
+                        app.path.get_path_str(),
+                        app.get_hovered_filename()
+                    ))
+                ),
                 Style::default().fg(Color::Green),
             ),
         ]),
@@ -312,23 +326,27 @@ pub fn get_file_preview_content<'a>(
     };
 
     let mut files = match file_type {
-        FileType::File => system::get_file_preview(hovered_file.clone(), 30)
-            .unwrap_or("Error Reading".to_string())
-            .lines()
-            .map(|line| Line::from(vec![Span::raw(line.to_string())]))
-            .collect::<Vec<_>>(),
-        FileType::Directory => system::get_dir_preview(hovered_file.clone())
-            .unwrap_or("Error Reading".to_string())
-            .lines()
-            .map(|line| {
-                let (bg, fg) = get_line_colors(app, &child_view.dir, line, &hovered_file);
+        FileType::File => {
+            system::get_file_preview(current_view.get_path_str() + "/" + &hovered_file, 30)
+                .unwrap_or("Error Reading".to_string())
+                .lines()
+                .map(|line| Line::from(vec![Span::raw(line.to_string())]))
+                .collect::<Vec<_>>()
+        }
+        FileType::Directory => {
+            system::get_dir_preview(current_view.get_path_str() + "/" + &hovered_file)
+                .unwrap_or("Error Reading".to_string())
+                .lines()
+                .map(|line| {
+                    let (bg, fg) = get_line_colors(app, &child_view.dir, line, &hovered_file);
 
-                Line::from(vec![Span::styled(
-                    line.to_string(),
-                    Style::default().bg(bg).fg(fg),
-                )])
-            })
-            .collect::<Vec<_>>(),
+                    Line::from(vec![Span::styled(
+                        line.to_string(),
+                        Style::default().bg(bg).fg(fg),
+                    )])
+                })
+                .collect::<Vec<_>>()
+        }
         FileType::Unknown => {
             let err = String::from("Unknown File Type");
 
