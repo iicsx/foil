@@ -157,7 +157,7 @@ fn handle_command_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         KeyCode::Enter => {
             let command = app.command.clone().unwrap_or(String::from(""));
             match command.as_str() {
-                "q" => {
+                "qa" | "q" => {
                     app.running = false;
                     return Ok(());
                 }
