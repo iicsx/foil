@@ -63,6 +63,9 @@ pub struct App<'a> {
 
     pub need_confirmation: bool,
     pub rerender_dir_content: bool,
+    pub hostname: String,
+    pub current_file_permissions: String,
+    pub current_file_size: String,
 }
 
 impl Default for App<'_> {
@@ -89,11 +92,46 @@ impl Default for App<'_> {
             command_buffer: InputBuffer::new(),
             need_confirmation: false,
             rerender_dir_content: true,
+            hostname: format!("{}@{}", system::whoami().trim(), system::hostname().trim()),
+            current_file_permissions: String::new(),
+            current_file_size: String::new(),
         }
     }
 }
 
 impl App<'_> {
+    fn new(mode: Mode, buffer_content: String, path: &str) -> Self {
+        let mut undo_stack = UndoStack::new();
+        undo_stack.push(buffer_content.clone(), 0, 0);
+
+        let mut buffer_storage = BufferStorage::new();
+        let _ = buffer_storage.add_view(path.to_string());
+
+        Self {
+            running: true,
+            command: None,
+            mode,
+            buffer_content: buffer_content.clone(),
+            child_preview: String::from(""),
+            buffer_storage: buffer_storage,
+            yank_buffer: YankBuffer::new(),
+            undo_stack: undo_stack,
+            path: PathHelper::new(path, &system::pwd()),
+
+            parent_pane: None,
+            current_pane: None,
+            child_pane: None,
+
+            cursor: Cursor::default(),
+            command_buffer: InputBuffer::new(),
+            need_confirmation: false,
+            rerender_dir_content: true,
+            hostname: format!("{}@{}", system::whoami().trim(), system::hostname().trim()),
+            current_file_permissions: String::new(),
+            current_file_size: String::new(),
+        }
+    }
+
     pub fn tick(&self) {}
 
     pub fn quit(&mut self) {
@@ -341,29 +379,19 @@ impl App<'_> {
     }
 
     pub fn get_line_length(&self, y: u16) -> Result<usize, std::io::Error> {
-        let lines: Vec<&str> = self.buffer_content.lines().collect();
-
-        if y as usize >= lines.len() {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "Line out of bounds",
-            ));
-        }
-
-        let line = lines[y as usize];
+        let line = self.buffer_content.lines().nth(y as usize).ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::InvalidInput, "Line out of bounds")
+        })?;
 
         Ok(line.chars().count())
     }
 
     pub fn get_hovered_filename(&self) -> String {
-        let lines: Vec<&str> = self.buffer_content.lines().collect();
-
-        if self.cursor.y as usize > lines.len() {
-            return String::new();
-        }
-
         let y = (self.cursor.y.max(1) - 1) as usize;
-        let line = lines[y as usize];
+        let line = match self.buffer_content.lines().nth(y) {
+            Some(line) => line,
+            None => return String::new(),
+        };
 
         if self.cursor.x as usize > line.chars().count() {
             return String::new();
