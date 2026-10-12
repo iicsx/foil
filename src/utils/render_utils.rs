@@ -114,8 +114,8 @@ pub fn get_body<'a>(app: &'a mut App) -> BodyLayout<'a> {
         .collect::<Vec<_>>();
 
     parent_files.sort_by(|a: &String, b: &String| {
-        let file_type_a = app.get_file_type(&current_dir.get_absolute_path(), a);
-        let file_type_b = app.get_file_type(&current_dir.get_absolute_path(), b);
+        let file_type_a = app.get_file_type(&parent_dir.get_absolute_path(), a);
+        let file_type_b = app.get_file_type(&parent_dir.get_absolute_path(), b);
 
         match (file_type_a, file_type_b) {
             (FileType::Directory, FileType::File) => std::cmp::Ordering::Less,
