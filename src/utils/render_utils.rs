@@ -93,7 +93,7 @@ pub fn get_body<'a>(app: &'a mut App) -> BodyLayout<'a> {
         match (file_type_a, file_type_b) {
             (FileType::Directory, FileType::File) => std::cmp::Ordering::Less,
             (FileType::File, FileType::Directory) => std::cmp::Ordering::Greater,
-            _ => a.cmp(b),
+            _ => a.to_lowercase().cmp(&b.to_lowercase()),
         }
     });
 
