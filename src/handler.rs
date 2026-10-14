@@ -12,10 +12,11 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
     if app.need_confirmation {
         let _ = handle_confirm(&key_event, app);
         app.command_buffer.clear();
+        app.buffer_storage.reset_views();
         return Ok(());
     }
 
-    let result = match app.mode {
+    match app.mode {
         Mode::Normal => handle_normal_mode(key_event, app),
         Mode::Insert => handle_insert_mode(key_event, app),
         Mode::Command => handle_command_mode(key_event, app),
@@ -23,9 +24,7 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         Mode::VisualBlock => handle_visual_block_mode(key_event, app),
         Mode::VisualLine => handle_visual_line_mode(key_event, app),
         Mode::Pending => handle_pending_mode(key_event, app),
-    };
-
-    result
+    }
 }
 
 fn handle_normal_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
@@ -86,12 +85,18 @@ fn handle_normal_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
                     .unwrap_or("")
                     .to_string()
             };
-            let _ = app.path.cd(&line);
-            app.buffer_storage.add_view(app.path.get_absolute_path())?;
+            let path = app.path.get_absolute_path();
+            let is_dir = system::is_dir(format!("{}/{}", path, line));
+            if is_dir {
+                let _ = app.path.cd(&line);
+                app.buffer_storage.add_view(app.path.get_absolute_path())?;
 
-            app.rerender_dir_content = true;
-            app.cursor.reset_x();
-            app.cursor.reset_y();
+                app.rerender_dir_content = true;
+                app.cursor.reset_x();
+                app.cursor.reset_y();
+            } else {
+                println!("Not implemented");
+            }
         }
 
         _ => handle_compound_inputs(key_event, app)?,
@@ -336,13 +341,20 @@ pub fn handle_confirm(key_event: &KeyEvent, app: &mut App) -> AppResult<()> {
             let files_to_delete = app.get_files(State::Deleted);
             let files_to_rename = app.get_files(State::Modified);
             let files_to_create = app.get_files(State::Created);
-            let files_to_move = app.get_files(State::Created);
+            let files_to_move = app.get_files(State::Moved);
 
             for file in files_to_delete {
                 let _ = system::delete_file(condense_path_name(file))?;
             }
             for file in files_to_rename {
-                let new_file_name = file.name.clone().trim().to_string();
+                let new_file_name = file
+                    .name
+                    .clone()
+                    .trim()
+                    .to_string()
+                    .trim_start_matches("./")
+                    .trim_start_matches("/")
+                    .to_string();
                 let _ = system::rename_file(file.original_name.clone(), new_file_name)?;
             }
             for file in files_to_create {
@@ -350,13 +362,13 @@ pub fn handle_confirm(key_event: &KeyEvent, app: &mut App) -> AppResult<()> {
                 let _ = system::create_file(new_file_name)?;
             }
             for file in files_to_move {
-                let new_file_name = file.name.clone().trim().to_string();
-                let _ = system::move_file(file.original_name.clone(), new_file_name)?;
+                let _ = system::move_file(file.original_dir, file.original_name, file.dir)?;
             }
 
             app.command = None;
             let _ = app.set_mode(Mode::Normal)?;
             app.need_confirmation = false;
+            app.rerender_dir_content = true;
         }
         KeyCode::Char('n') => {
             app.command = None;
@@ -378,18 +390,30 @@ pub fn handle_confirm(key_event: &KeyEvent, app: &mut App) -> AppResult<()> {
 fn condense_path_name(file: FileEntry) -> String {
     let pwd = system::pwd();
     let path = file.dir.clone();
-    let path = path.trim_start_matches(pwd.as_str());
+    let path = path
+        .trim_start_matches(pwd.as_str())
+        .trim_start_matches("./")
+        .trim_start_matches("../");
 
-    let path = path.trim_start_matches("./");
-    let path = path.trim_start_matches("../");
+    let file_name = file
+        .name
+        .trim()
+        .trim_start_matches("./")
+        .trim_start_matches("/");
 
     let mut name = match path.ends_with("/") {
-        true => format!("{}{}", path, file.name),
-        false => format!("{}/{}", path, file.name),
+        true => format!("{}{}", path, file_name),
+        false => {
+            if path.is_empty() {
+                return file_name.to_string();
+            }
+
+            format!("{}/{}", path, file_name)
+        }
     };
 
     if file.file_type == FileType::Directory {
-        name = name + "/";
+        name += "/";
     }
 
     name

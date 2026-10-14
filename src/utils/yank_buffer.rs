@@ -1,22 +1,24 @@
 // Important for pasting. Keeping track of the yank type makes pasting easier
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub enum YankType {
+    #[default]
+    Char,
     Line,
     Word,
-    Char,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct YankBuffer {
     pub content: String,
     pub yank_type: YankType,
+    pub original_dir: Option<String>,
 }
-
 impl YankBuffer {
     pub fn new() -> Self {
         Self {
             content: String::new(),
             yank_type: YankType::Line,
+            original_dir: None,
         }
     }
 
@@ -34,5 +36,9 @@ impl YankBuffer {
 
     pub fn set_content(&mut self, content: String) {
         self.content = content;
+    }
+
+    pub fn set_original_dir(&mut self, dir: String) {
+        self.original_dir = Some(dir);
     }
 }

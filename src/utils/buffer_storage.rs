@@ -39,7 +39,7 @@ pub enum FileType {
 pub struct FileEntry {
     pub original_name: String,
     pub name: String,
-    original_dir: String,
+    pub original_dir: String,
     pub dir: String,
     pub state: State,
     pub file_type: FileType,
@@ -86,10 +86,7 @@ impl DirBuffer {
             }
         }
 
-        Ok(DirBuffer {
-            dir: String::from(dir),
-            files,
-        })
+        Ok(DirBuffer { dir, files })
     }
 
     pub fn from_raw(raw: &str) -> Self {
@@ -136,6 +133,12 @@ impl DirBuffer {
     pub fn set_state(&mut self, name: &str, state: State) {
         if let Some((_, file)) = self.files.iter_mut().find(|(_, file)| file.name == name) {
             file.state = state;
+        }
+    }
+
+    pub fn reset_states(&mut self) {
+        for file in self.files.values_mut() {
+            file.state = State::Unmodified;
         }
     }
 
@@ -238,7 +241,7 @@ impl BufferStorage {
     }
 
     pub fn add_view(&mut self, dir: String) -> Result<(), std::io::Error> {
-        if let Some(_) = self.get_view(&dir) {
+        if self.get_view(&dir).is_some() {
             return Ok(());
         }
 
@@ -246,6 +249,12 @@ impl BufferStorage {
         self.views.insert(dir, buffer);
 
         Ok(())
+    }
+
+    pub fn remove_entry(&mut self, original_dir: &str, name: &str) {
+        if let Some(buffer) = self.views.get_mut(original_dir) {
+            buffer.files.remove(name);
+        }
     }
 
     pub fn add_view_raw(&mut self, dir: String, raw: &str) {
@@ -258,7 +267,20 @@ impl BufferStorage {
     }
 
     pub fn update_view(&mut self, dir: &str, buffer: DirBuffer) {
+        if self.views.contains_key(dir) {
+            self.views.remove(dir);
+        }
+
         self.views.insert(dir.to_string(), buffer);
+    }
+
+    pub fn reset_views(&mut self) {
+        for buffer in self.views.values_mut() {
+            buffer.reset_states();
+        }
+
+        // TODO:
+        // also reload the current view
     }
 
     pub fn has_changes(&self) -> bool {

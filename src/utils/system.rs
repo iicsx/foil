@@ -1,5 +1,9 @@
-use std::{fs, io::{BufRead, BufReader}, process};
 use std::path::Path;
+use std::{
+    fs,
+    io::{BufRead, BufReader},
+    process,
+};
 
 pub fn whoami() -> String {
     let output = std::process::Command::new("whoami").output();
@@ -93,6 +97,12 @@ pub fn get_file_size(filename: String) -> String {
         .unwrap_or_default()
 }
 
+pub fn is_dir(path: String) -> bool {
+    fs::metadata(path)
+        .map(|metadata| metadata.is_dir())
+        .unwrap_or(false)
+}
+
 fn human_size(bytes: u64) -> String {
     const UNITS: [&str; 5] = ["B", "K", "M", "G", "T"];
     let mut size = bytes as f64;
@@ -101,8 +111,11 @@ fn human_size(bytes: u64) -> String {
         size /= 1024.0;
         unit += 1;
     }
-    if unit == 0 { format!("{}{}", bytes, UNITS[unit]) }
-    else { format!("{:.1}{}", size, UNITS[unit]) }
+    if unit == 0 {
+        format!("{}{}", bytes, UNITS[unit])
+    } else {
+        format!("{:.1}{}", size, UNITS[unit])
+    }
 }
 
 pub fn delete_file(file_name: String) -> Result<String, std::io::Error> {
@@ -141,9 +154,13 @@ pub fn create_file(file_name: String) -> Result<String, std::io::Error> {
     Ok(result.trim().to_string())
 }
 
-pub fn move_file(file_name: String, new_dir: String) -> Result<String, std::io::Error> {
+pub fn move_file(
+    original_dir: String,
+    file_name: String,
+    new_dir: String,
+) -> Result<String, std::io::Error> {
     let output = std::process::Command::new("mv")
-        .arg(file_name)
+        .arg(format!("{}/{}", original_dir, file_name))
         .arg(new_dir)
         .output()?;
 
@@ -160,7 +177,7 @@ pub fn get_file_preview(file_name: String, max_lines: usize) -> Result<String, s
         .collect::<Result<Vec<_>, _>>()?
         .join("\n");
     if preview.is_empty() {
-        return Err(std::io::Error::new(std::io::ErrorKind::Other, "File is empty"));
+        return Err(std::io::Error::other("File is empty"));
     }
     Ok(preview)
 }

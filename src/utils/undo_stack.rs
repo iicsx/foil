@@ -1,10 +1,9 @@
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct UndoStack {
     stack: Vec<String>,
     pointers: Vec<(usize, usize)>,
     current_index: usize,
 }
-
 impl UndoStack {
     pub fn new() -> Self {
         UndoStack {

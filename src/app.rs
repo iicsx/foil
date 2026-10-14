@@ -9,7 +9,7 @@ use crate::utils::{
 };
 use crossterm::cursor::SetCursorStyle;
 use ratatui::widgets::Paragraph;
-use std::{error, fmt, result::Result};
+use std::{error, fmt, fs, path::Path, result::Result};
 
 #[derive(Debug, Default, Clone)]
 pub enum Mode {
@@ -486,16 +486,20 @@ impl App<'_> {
     }
 
     pub fn get_file_type(&self, view: &str, filename: &str) -> FileType {
-        let view = match self.buffer_storage.views.get(view) {
-            Some(v) => v,
-            None => {
-                return FileType::Unknown;
-            }
-        };
+        if let Some(file) = self
+            .buffer_storage
+            .views
+            .get(view)
+            .and_then(|view| view.get_file(filename))
+        {
+            return file.file_type;
+        }
 
-        match view.get_file(filename) {
-            Some(file) => file.file_type,
-            None => FileType::Unknown,
+        let path = Path::new(view).join(filename);
+        match fs::metadata(path) {
+            Ok(metadata) if metadata.is_file() => FileType::File,
+            Ok(metadata) if metadata.is_dir() => FileType::Directory,
+            _ => FileType::Unknown,
         }
     }
 }

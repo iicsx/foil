@@ -38,9 +38,11 @@ pub mod handler {
         }
 
         app.yank_buffer.set_content(line.clone());
+        app.yank_buffer
+            .set_original_dir(app.path.get_absolute_path().to_string());
 
         if let Some(mut view) = app.buffer_storage.get_view(&current_path) {
-            view.set_state(&line.trim(), State::Deleted);
+            view.set_state(line.trim(), State::Deleted);
             app.buffer_storage.update_view(&current_path, view)
         }
     }
@@ -346,6 +348,8 @@ pub mod handler {
             .unwrap_or("");
 
         app.yank_buffer.set_content(line.to_string());
+        app.yank_buffer
+            .set_original_dir(app.path.get_absolute_path().to_string());
         app.yank_buffer.set_yank_type(YankType::Line);
     }
 
@@ -357,11 +361,13 @@ pub mod handler {
             .unwrap_or("");
 
         let x = app.cursor.x as usize;
-        let start_index = app.seek_special_character_backward(&line.to_string(), x);
-        let end_index = app.seek_special_character_forward(&line.to_string(), x);
+        let start_index = app.seek_special_character_backward(line, x);
+        let end_index = app.seek_special_character_forward(line, x);
 
         let content = &line[start_index..end_index];
         app.yank_buffer.set_content(content.to_string());
+        app.yank_buffer
+            .set_original_dir(app.path.get_absolute_path().to_string());
         app.yank_buffer.set_yank_type(YankType::Word);
 
         app.cursor.x = start_index.try_into().unwrap_or(1).max(1);
@@ -369,25 +375,30 @@ pub mod handler {
 
     // TODO implement Paste - Move file
     pub fn p(app: &mut App) {
-        let current_path: String = app.path.get_absolute_path().to_string();
+        let current_path = app.path.get_absolute_path().to_string();
 
         let buffer_content = app.buffer_content.clone();
 
         let content = app.yank_buffer.content.clone();
         let yank_type = app.yank_buffer.get_yank_type();
+        let original_dir = app
+            .yank_buffer
+            .original_dir
+            .clone()
+            .unwrap_or_else(|| current_path.clone());
 
         match yank_type {
             YankType::Line => {
                 app.move_max_x();
-                app.insert_at(app.cursor.x, app.cursor.y - 1, &format!("\n{}", &content));
+                app.insert_at(app.cursor.x, app.cursor.y - 1, &format!("\n{}", content));
                 app.cursor.down();
 
                 app.cursor.reset_x();
 
-                if let Some(mut view) = app.buffer_storage.get_view(&current_path) {
-                    view.set_state(&content.trim(), State::Moved);
+                if let Some(mut view) = app.buffer_storage.get_view(&original_dir) {
+                    view.set_state(&content, State::Moved);
                     view.set_path(&content, &current_path);
-                    app.buffer_storage.update_view(&current_path, view)
+                    app.buffer_storage.update_view(&original_dir, view)
                 }
             }
             YankType::Char | YankType::Word => {
