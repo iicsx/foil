@@ -209,18 +209,10 @@ impl DirBuffer {
 
     // these two might be unused tbh
     pub fn get_file_move_dirs(&self, name: &str) -> Option<(String, String)> {
-        if let Some(file) = self.files.get(name) {
-            Some((file.original_dir.clone(), file.dir.clone()))
-        } else {
-            None
-        }
+        self.files.get(name).map(|file| (file.original_dir.clone(), file.dir.clone()))
     }
     pub fn get_rename(&self, name: &str) -> Option<(String, String)> {
-        if let Some(file) = self.files.get(name) {
-            Some((file.original_name.clone(), file.name.clone()))
-        } else {
-            None
-        }
+        self.files.get(name).map(|file| (file.original_name.clone(), file.name.clone()))
     }
 
     pub fn get_file(&self, name: &str) -> Option<FileEntry> {
@@ -297,5 +289,11 @@ impl BufferStorage {
 
     pub fn clear(&mut self) {
         self.views.clear();
+    }
+}
+
+impl Default for BufferStorage {
+    fn default() -> Self {
+        Self::new()
     }
 }

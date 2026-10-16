@@ -1,11 +1,21 @@
 use ratatui::layout::Rect;
 use ratatui::prelude::Position;
 
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct Cursor {
     pub container: Option<Rect>,
     pub x: u16,
     pub y: u16,
+}
+
+impl Default for Cursor {
+    fn default() -> Self {
+        Self {
+            container: None,
+            x: 1,
+            y: 1,
+        }
+    }
 }
 
 impl Cursor {
@@ -14,14 +24,6 @@ impl Cursor {
             container: Some(container),
             // defaults to 1 because of borders, this might need a change
             // since we also need to account for these borders whenever we calculate literally anything
-            x: 1,
-            y: 1,
-        }
-    }
-
-    pub fn default() -> Self {
-        Self {
-            container: None,
             x: 1,
             y: 1,
         }

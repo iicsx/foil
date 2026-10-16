@@ -122,11 +122,9 @@ fn handle_insert_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
             }
             if app.cursor.x <= 1 {
                 let max_x = app.get_line_length(app.cursor.y - 2).unwrap_or(0);
+                let y = usize::from(app.cursor.y);
 
-                app.buffer_content = app.merge_lines(
-                    app.cursor.y.try_into().unwrap_or(0) - 2,
-                    app.cursor.y.try_into().unwrap_or(0) - 1,
-                )?;
+                app.buffer_content = app.merge_lines(y - 2, y - 1)?;
                 app.cursor.up();
                 app.cursor.x = max_x.try_into().unwrap_or(0) + 1;
             } else {
@@ -169,7 +167,7 @@ fn handle_command_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
                 "w" => {
                     app.save();
                     app.command = None;
-                    let _ = app.set_mode(Mode::Normal)?;
+                    app.set_mode(Mode::Normal)?;
                     return Ok(());
                 }
                 "wq" => {
@@ -192,7 +190,7 @@ fn handle_command_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         }
         KeyCode::Backspace => {
             if let Some(cmd) = &mut app.command {
-                if cmd.len() > 0 {
+                if !cmd.is_empty() {
                     cmd.pop();
                 }
             }
@@ -209,7 +207,7 @@ fn handle_command_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
     match &app.command {
         Some(cmd) => {
             let code = key_event.code.to_string();
-            if code.len() != 1 || !code.chars().nth(0).unwrap_or(' ').is_alphanumeric() {
+            if code.len() != 1 || !code.chars().next().unwrap_or(' ').is_alphanumeric() {
                 return Ok(());
             }
 
@@ -219,45 +217,34 @@ fn handle_command_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         None => app.command = Some(key_event.code.to_string()),
     }
 
-    match key_event.code {
-        _ => {}
-    };
+    {};
 
     Ok(())
 }
 
 fn handle_visual_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
-    match key_event.code {
-        KeyCode::Esc => {
-            app.cursor.left();
-            app.set_mode(Mode::Normal)?;
-            let _ = execute!(std::io::stdout(), SetCursorStyle::SteadyBlock);
-        }
-        _ => {}
+    if key_event.code == KeyCode::Esc {
+        app.cursor.left();
+        app.set_mode(Mode::Normal)?;
+        let _ = execute!(std::io::stdout(), SetCursorStyle::SteadyBlock);
     };
 
     Ok(())
 }
 
 fn handle_visual_block_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
-    match key_event.code {
-        KeyCode::Esc => {
-            app.cursor.left();
-            let _ = app.set_mode(Mode::Normal)?;
-        }
-        _ => {}
+    if key_event.code == KeyCode::Esc {
+        app.cursor.left();
+        app.set_mode(Mode::Normal)?;
     };
 
     Ok(())
 }
 
 fn handle_visual_line_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
-    match key_event.code {
-        KeyCode::Esc => {
-            app.cursor.left();
-            let _ = app.set_mode(Mode::Normal)?;
-        }
-        _ => {}
+    if key_event.code == KeyCode::Esc {
+        app.cursor.left();
+        app.set_mode(Mode::Normal)?;
     };
 
     Ok(())
@@ -267,7 +254,7 @@ fn handle_pending_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
     match key_event.code {
         KeyCode::Esc => {
             app.cursor.left();
-            let _ = app.set_mode(Mode::Normal)?;
+            app.set_mode(Mode::Normal)?;
             app.command_buffer.clear();
         }
         _ => handle_compound_inputs(key_event, app)?,
@@ -284,7 +271,7 @@ fn handle_compound_inputs(
         return Ok(());
     }
 
-    let _ = app.set_mode(Mode::Pending)?;
+    app.set_mode(Mode::Pending)?;
 
     let captured_buffer_content = app.buffer_content.clone();
 
@@ -295,7 +282,7 @@ fn handle_compound_inputs(
 
         // set mode to normal BEFORE motion executes as it might change the mode
         // this is just to ensure we don't stay in pending mode
-        let _ = app.set_mode(Mode::Normal)?;
+        app.set_mode(Mode::Normal)?;
 
         // Line 1 has '../' and is immutable
         if app.cursor.y == 1 {
@@ -366,7 +353,7 @@ pub fn handle_confirm(key_event: &KeyEvent, app: &mut App) -> AppResult<()> {
             }
 
             app.command = None;
-            let _ = app.set_mode(Mode::Normal)?;
+            app.set_mode(Mode::Normal)?;
             app.need_confirmation = false;
             app.rerender_dir_content = true;
 
@@ -375,13 +362,13 @@ pub fn handle_confirm(key_event: &KeyEvent, app: &mut App) -> AppResult<()> {
         }
         KeyCode::Char('n') => {
             app.command = None;
-            let _ = app.set_mode(Mode::Normal)?;
+            app.set_mode(Mode::Normal)?;
             app.need_confirmation = false;
         }
         KeyCode::Esc => {
             app.command = None;
             app.need_confirmation = false;
-            let _ = app.set_mode(Mode::Normal)?;
+            app.set_mode(Mode::Normal)?;
             app.need_confirmation = false;
         }
         _ => {}

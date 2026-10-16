@@ -183,18 +183,15 @@ impl App<'_> {
         line.insert_str(x as usize, content);
 
         let view = self.buffer_storage.get_view(&self.path.get_absolute_path());
-        match view {
-            Some(mut view) => {
-                if identifier.trim().is_empty() {
-                    view.add_file(line, FileType::File);
-                } else {
-                    view.set_name(&identifier, line);
-                }
-
-                self.buffer_storage
-                    .update_view(&self.path.get_absolute_path(), view);
+        if let Some(mut view) = view {
+            if identifier.trim().is_empty() {
+                view.add_file(line, FileType::File);
+            } else {
+                view.set_name(&identifier, line);
             }
-            _ => {}
+
+            self.buffer_storage
+                .update_view(&self.path.get_absolute_path(), view);
         }
 
         self.buffer_content = lines.join("\n");
@@ -215,13 +212,10 @@ impl App<'_> {
         line.remove(x as usize);
 
         let view = self.buffer_storage.get_view(&self.path.get_absolute_path());
-        match view {
-            Some(mut view) => {
-                view.set_name(&identifier, line);
-                self.buffer_storage
-                    .update_view(&self.path.get_absolute_path(), view);
-            }
-            _ => {}
+        if let Some(mut view) = view {
+            view.set_name(&identifier, line);
+            self.buffer_storage
+                .update_view(&self.path.get_absolute_path(), view);
         }
 
         self.buffer_content = lines.join("\n");
@@ -333,7 +327,7 @@ impl App<'_> {
         let mut lines: Vec<String> = self
             .buffer_content
             .lines()
-            .map(|line| String::from(line))
+            .map(String::from)
             .collect();
 
         if y as usize >= lines.len() {
@@ -370,7 +364,7 @@ impl App<'_> {
         // [FIXME]
         new_buffer_content.replace_range(
             new_buffer_content.find(line1).unwrap()..new_buffer_content.find(line2).unwrap(),
-            &line1, // idk why but this works
+            line1, // idk why but this works
         );
 
         Ok(new_buffer_content)
@@ -399,7 +393,7 @@ impl App<'_> {
             return String::new();
         }
 
-        let filename = &line[0 as usize..];
+        let filename = &line[0_usize..];
 
         filename.trim().to_string()
     }

@@ -47,3 +47,9 @@ impl InputBuffer {
         Ok(result)
     }
 }
+
+impl Default for InputBuffer {
+    fn default() -> Self {
+        Self::new()
+    }
+}

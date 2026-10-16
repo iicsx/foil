@@ -2,6 +2,23 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PathError {
+    InvalidPath,
+    NoParent,
+}
+
+impl std::fmt::Display for PathError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidPath => write!(f, "invalid path"),
+            Self::NoParent => write!(f, "path has no parent"),
+        }
+    }
+}
+
+impl std::error::Error for PathError {}
+
 #[derive(Debug, Clone)]
 pub struct PathHelper {
     absolute_path: String,
@@ -46,15 +63,12 @@ impl PathHelper {
         let mut names = Vec::new();
 
         for name in self.get_dir_names()? {
-            match name.path().into_os_string().into_string() {
-                Ok(mut pathname) => {
-                    if pathname.starts_with("./") && trim_start {
-                        pathname = pathname.trim_start_matches("./").to_string();
-                    }
-
-                    names.push(pathname);
+            if let Ok(mut pathname) = name.path().into_os_string().into_string() {
+                if pathname.starts_with("./") && trim_start {
+                    pathname = pathname.trim_start_matches("./").to_string();
                 }
-                Err(_) => {}
+
+                names.push(pathname);
             }
         }
 
@@ -65,17 +79,14 @@ impl PathHelper {
         let mut names = Vec::new();
 
         for name in self.get_dir_names()? {
-            match name.path().into_os_string().into_string() {
-                Ok(pathname) => {
-                    let trimmed = pathname
-                        .trim_start_matches("./")
-                        .to_string()
-                        .trim_start_matches("../")
-                        .to_string();
+            if let Ok(pathname) = name.path().into_os_string().into_string() {
+                let trimmed = pathname
+                    .trim_start_matches("./")
+                    .to_string()
+                    .trim_start_matches("../")
+                    .to_string();
 
-                    names.push(trimmed);
-                }
-                Err(_) => {}
+                names.push(trimmed);
             }
         }
 
@@ -83,10 +94,7 @@ impl PathHelper {
     }
 
     pub fn get_file_name(&self) -> Option<&str> {
-        let n = match self.current_path.file_name() {
-            Some(n) => n,
-            None => return None,
-        };
+        let n = self.current_path.file_name()?;
 
         match n.to_str() {
             Some(res) => Some(res),
@@ -94,14 +102,14 @@ impl PathHelper {
         }
     }
 
-    pub fn get_parent(&mut self) -> Result<PathHelper, ()> {
+    pub fn get_parent(&mut self) -> Result<PathHelper, PathError> {
         let mut path = self.clone();
         path.cd("..")?;
 
         Ok(path)
     }
 
-    pub fn cd(&mut self, path: &str) -> Result<(), ()> {
+    pub fn cd(&mut self, path: &str) -> Result<(), PathError> {
         if self.get_absolute_path() == "" {
             return Ok(());
         }
@@ -113,7 +121,7 @@ impl PathHelper {
 
         let path_str = match self.current_path.as_os_str().to_str() {
             Some(path_str) => path_str,
-            None => return Err(()),
+            None => return Err(PathError::InvalidPath),
         };
 
         let full_path: String = if path_str.ends_with("..") || path_str.ends_with("../") {
@@ -145,39 +153,43 @@ impl PathHelper {
         let new_path = Path::new(&full_path);
 
         if !new_path.exists() {
-            return Err(());
+            return Err(if path == ".." || path == "../" {
+                PathError::NoParent
+            } else {
+                PathError::InvalidPath
+            });
         }
 
         self.current_path = new_path.to_path_buf();
         Ok(())
     }
 
-    pub fn sim_cd(&mut self, path: &str) -> Result<String, ()> {
+    pub fn sim_cd(&mut self, path: &str) -> Result<String, PathError> {
         let path_str = match self.current_path.as_os_str().to_str() {
             Some(path_str) => path_str,
-            None => return Err(()),
+            None => return Err(PathError::InvalidPath),
         };
 
         let full_path: String = path_str.to_string() + "/" + path;
         let new_path = Path::new(&full_path);
 
         if !new_path.exists() {
-            return Err(());
+            return Err(PathError::InvalidPath);
         }
 
         let new_path_str = match new_path.to_str() {
             Some(path_str) => path_str,
-            None => return Err(()),
+            None => return Err(PathError::InvalidPath),
         };
 
         Ok(new_path_str.to_string())
     }
 
-    pub fn set_path(&mut self, path: &str) -> Result<(), ()> {
+    pub fn set_path(&mut self, path: &str) -> Result<(), PathError> {
         let new_path = Path::new(path);
 
         if !new_path.exists() {
-            return Err(());
+            return Err(PathError::InvalidPath);
         }
 
         self.current_path = new_path.to_path_buf();
@@ -232,8 +244,8 @@ impl PathHelper {
 
         let temp = temp.trim_start_matches("./");
 
-        match temp.len() > 0 && temp != "." {
-            true => format!("{}/{}", absolute_path, &temp),
+        match !temp.is_empty() && temp != "." {
+            true => format!("{}/{}", absolute_path, temp),
             false => absolute_path,
         }
     }

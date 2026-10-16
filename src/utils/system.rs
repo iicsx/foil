@@ -8,7 +8,7 @@ use std::{
 pub fn whoami() -> String {
     let output = std::process::Command::new("whoami").output();
 
-    return match output {
+    match output {
         Ok(output) => {
             let user = String::from_utf8_lossy(&output.stdout);
 
@@ -17,19 +17,19 @@ pub fn whoami() -> String {
         Err(_) => {
             process::exit(1);
         }
-    };
+    }
 }
 
 pub fn hostname() -> String {
     let output = std::process::Command::new("hostname").output();
 
-    return match output {
+    match output {
         Ok(output) => String::from(String::from_utf8_lossy(&output.stdout)),
         Err(_) => match try_get_hostnamectl() {
             Some(hostname) => hostname,
             None => process::exit(1),
         },
-    };
+    }
 }
 
 fn try_get_hostnamectl() -> Option<String> {
@@ -60,7 +60,7 @@ fn try_get_hostnamectl() -> Option<String> {
 pub fn pwd() -> String {
     let output = std::process::Command::new("pwd").output();
 
-    return match output {
+    match output {
         Ok(output) => {
             let path = String::from_utf8_lossy(&output.stdout);
 
@@ -69,7 +69,7 @@ pub fn pwd() -> String {
         Err(_) => {
             process::exit(1);
         }
-    };
+    }
 }
 
 pub fn get_file_permissions() -> String {

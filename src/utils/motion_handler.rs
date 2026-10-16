@@ -67,7 +67,7 @@ pub mod handler {
         let _ = app.set_mode(Mode::Insert);
 
         if let Some(mut view) = app.buffer_storage.get_view(&current_path) {
-            view.set_state(&line.trim(), State::Deleted);
+            view.set_state(line.trim(), State::Deleted);
             app.buffer_storage.update_view(&current_path, view)
         }
     }
@@ -98,7 +98,7 @@ pub mod handler {
         app.yank_buffer.set_content(line.clone());
 
         if let Some(mut view) = app.buffer_storage.get_view(&current_path) {
-            view.set_state(&line.trim(), State::Deleted);
+            view.set_state(line.trim(), State::Deleted);
             app.buffer_storage.update_view(&current_path, view)
         }
     }
@@ -224,10 +224,10 @@ pub mod handler {
             .nth(app.cursor.y as usize - 1)
             .unwrap_or("");
         let x = app.cursor.x as usize;
-        let new_x = app.get_end_x(&line.to_string(), x, true);
+        let new_x = app.get_end_x(line, x, true);
 
         if new_x - 1 == app.get_line_length(app.cursor.y - 1).unwrap_or(0)
-            && (app.cursor.y.try_into().unwrap_or(0) < app.get_line_count())
+            && (usize::from(app.cursor.y) < app.get_line_count())
         {
             app.cursor.down();
             app.cursor.reset_x();
@@ -252,7 +252,7 @@ pub mod handler {
                 .try_into()
                 .unwrap_or(1);
         } else {
-            let new_x = app.get_start_x(&line.to_string(), x);
+            let new_x = app.get_start_x(line, x);
             app.cursor.move_word(line, new_x);
         }
     }
@@ -326,7 +326,7 @@ pub mod handler {
         app.yank_buffer.set_content(line.to_string());
 
         if let Some(mut view) = app.buffer_storage.get_view(&current_path) {
-            view.set_state(&line.trim(), State::Deleted);
+            view.set_state(line.trim(), State::Deleted);
             app.buffer_storage.update_view(&current_path, view)
         }
     }
@@ -424,7 +424,7 @@ pub mod handler {
                 app.insert_at(
                     app.cursor.x - 1,
                     app.cursor.y - 1,
-                    &format!("{}\n", &content),
+                    &format!("{}\n", content),
                 );
 
                 app.cursor.reset_x();
