@@ -41,7 +41,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
         ])
         .split(chunks[1]);
 
-    let body = render_utils::get_body(app);
+    let body = render_utils::get_body(app, body_chunks[2].height.saturating_sub(2) as usize);
     frame.render_widget(body.parent, body_chunks[0]);
     frame.render_widget(body.current, body_chunks[1]);
     frame.render_widget(body.child, body_chunks[2]);

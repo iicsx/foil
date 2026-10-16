@@ -74,7 +74,7 @@ pub fn get_footer<'a>(block: &Block<'a>, app: &App) -> Paragraph<'a> {
     Paragraph::new(spans).block(block.clone())
 }
 
-pub fn get_body<'a>(app: &'a mut App) -> BodyLayout<'a> {
+pub fn get_body<'a>(app: &'a mut App, child_max_lines: usize) -> BodyLayout<'a> {
     let current_dir: PathHelper = app.path.clone();
 
     let cl = current_dir.clone().get_absolute_path();
@@ -179,6 +179,7 @@ pub fn get_body<'a>(app: &'a mut App) -> BodyLayout<'a> {
         app,
         hovered_file.clone(),
         current_dir.clone(),
+        child_max_lines,
     ))
     .block(
         Block::default()
@@ -318,6 +319,7 @@ pub fn get_file_preview_content<'a>(
     app: &'a mut App,
     hovered_file: String,
     current_view: PathHelper,
+    max_lines: usize,
 ) -> Vec<Line<'a>> {
     let file_type = app.get_file_type(&current_view.get_absolute_path(), &hovered_file);
 
@@ -340,7 +342,7 @@ pub fn get_file_preview_content<'a>(
 
     let mut files = match file_type {
         FileType::File => {
-            system::get_file_preview(current_view.get_path_str() + "/" + &hovered_file, 30)
+            system::get_file_preview(current_view.get_path_str() + "/" + &hovered_file, max_lines)
                 .unwrap_or("Error Reading".to_string())
                 .lines()
                 .map(|line| Line::from(vec![Span::raw(line.to_string())]))
