@@ -140,14 +140,16 @@ pub fn rename_file(old_name: String, new_name: String) -> Result<String, std::io
     Ok(result.trim().to_string())
 }
 
-pub fn create_file(file_name: String) -> Result<String, std::io::Error> {
+pub fn create_file(dir: &str, file_name: String) -> Result<String, std::io::Error> {
     let cmd = if file_name.ends_with("/") {
         "mkdir"
     } else {
         "touch"
     };
 
-    let output = std::process::Command::new(cmd).arg(file_name).output()?;
+    let full_path = format!("{}/{}", dir, file_name);
+
+    let output = std::process::Command::new(cmd).arg(full_path).output()?;
 
     let result = String::from_utf8_lossy(&output.stdout);
 

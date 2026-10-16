@@ -359,7 +359,7 @@ pub fn handle_confirm(key_event: &KeyEvent, app: &mut App) -> AppResult<()> {
             }
             for file in files_to_create {
                 let new_file_name = file.name.clone().trim().to_string();
-                let _ = system::create_file(new_file_name)?;
+                let _ = system::create_file(&file.original_dir, new_file_name)?;
             }
             for file in files_to_move {
                 let _ = system::move_file(file.original_dir, file.original_name, file.dir)?;
@@ -369,6 +369,9 @@ pub fn handle_confirm(key_event: &KeyEvent, app: &mut App) -> AppResult<()> {
             let _ = app.set_mode(Mode::Normal)?;
             app.need_confirmation = false;
             app.rerender_dir_content = true;
+
+            app.buffer_storage.clear();
+            app.buffer_storage.add_view(app.path.get_absolute_path())?;
         }
         KeyCode::Char('n') => {
             app.command = None;

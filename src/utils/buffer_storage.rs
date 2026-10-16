@@ -294,4 +294,8 @@ impl BufferStorage {
 
         false
     }
+
+    pub fn clear(&mut self) {
+        self.views.clear();
+    }
 }
