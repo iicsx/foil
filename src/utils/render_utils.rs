@@ -330,7 +330,11 @@ pub fn get_file_preview_content<'a>(
 
             app.buffer_storage
                 .get_view(&child_view.get_absolute_path())
-                .unwrap_or_else(|| app.buffer_storage.get_view(&system::pwd()).unwrap())
+                .unwrap_or_else(|| {
+                    app.buffer_storage
+                        .get_view(&app.path.get_absolute_path())
+                        .unwrap()
+                })
         }
     };
 
