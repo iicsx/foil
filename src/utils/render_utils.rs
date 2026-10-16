@@ -13,12 +13,15 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, Paragraph},
 };
-use std::io::Write;
-use syntect::easy::HighlightLines;
-use syntect::highlighting::ThemeSet;
-use syntect::parsing::SyntaxSet;
-use syntect::util::LinesWithEndings;
-use syntect_tui;
+use std::{
+    collections::HashMap,
+    path::Path,
+    sync::{Mutex, OnceLock},
+    time::UNIX_EPOCH,
+};
+use syntect::{
+    easy::HighlightLines, highlighting::ThemeSet, parsing::SyntaxSet, util::LinesWithEndings,
+};
 
 pub struct BodyLayout<'a> {
     pub parent: Paragraph<'a>,
@@ -342,11 +345,52 @@ pub fn get_file_preview_content<'a>(
 
     let mut files = match file_type {
         FileType::File => {
-            system::get_file_preview(current_view.get_path_str() + "/" + &hovered_file, max_lines)
-                .unwrap_or("Error Reading".to_string())
-                .lines()
-                .map(|line| Line::from(vec![Span::raw(line.to_string())]))
-                .collect::<Vec<_>>()
+            let path = Path::new(&current_view.get_path_str()).join(&hovered_file);
+            let path_string = path.to_string_lossy().into_owned();
+            let metadata = std::fs::metadata(&path).ok();
+            let extension = path
+                .extension()
+                .and_then(|extension| extension.to_str())
+                .unwrap_or("");
+            let size = metadata
+                .as_ref()
+                .map(|metadata| metadata.len())
+                .unwrap_or(0);
+            let modified = metadata
+                .and_then(|metadata| metadata.modified().ok())
+                .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
+                .map(|duration| duration.as_nanos())
+                .unwrap_or(0);
+            let cache_key = PreviewCacheKey {
+                path: path_string.clone(),
+                size,
+                modified,
+                max_lines,
+                extension: extension.to_ascii_lowercase(),
+            };
+
+            if let Some(lines) = preview_cache()
+                .lock()
+                .ok()
+                .and_then(|cache| cache.get(&cache_key).cloned())
+            {
+                lines
+            } else {
+                let content = system::get_file_preview(path_string, max_lines)
+                    .unwrap_or_else(|_| "Error Reading".to_string());
+                let lines = if size <= 256 * 1024 {
+                    get_styled_preview(&content, extension)
+                } else {
+                    plain_preview(&content)
+                };
+                if let Ok(mut cache) = preview_cache().lock() {
+                    if cache.len() >= 64 {
+                        cache.clear();
+                    }
+                    cache.insert(cache_key, lines.clone());
+                }
+                lines
+            }
         }
         FileType::Directory => {
             system::get_dir_preview(current_view.get_path_str() + "/" + &hovered_file)
@@ -397,27 +441,70 @@ pub fn get_file_preview_content<'a>(
     files
 }
 
-fn get_styled_preview<'a>(content: &'a str, file_extension: &str) -> Vec<Line<'a>> {
-    let ps = SyntaxSet::load_defaults_newlines();
-    let ts = ThemeSet::load_defaults();
+#[derive(Hash, PartialEq, Eq)]
+struct PreviewCacheKey {
+    path: String,
+    size: u64,
+    modified: u128,
+    max_lines: usize,
+    extension: String,
+}
+
+fn preview_cache() -> &'static Mutex<HashMap<PreviewCacheKey, Vec<Line<'static>>>> {
+    static CACHE: OnceLock<Mutex<HashMap<PreviewCacheKey, Vec<Line<'static>>>>> = OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn syntax_set() -> &'static SyntaxSet {
+    static SYNTAX_SET: OnceLock<SyntaxSet> = OnceLock::new();
+    SYNTAX_SET.get_or_init(SyntaxSet::load_defaults_newlines)
+}
+
+fn theme_set() -> &'static ThemeSet {
+    static THEME_SET: OnceLock<ThemeSet> = OnceLock::new();
+    THEME_SET.get_or_init(ThemeSet::load_defaults)
+}
+
+fn get_styled_preview(content: &str, file_extension: &str) -> Vec<Line<'static>> {
+    let ps = syntax_set();
+    let ts = theme_set();
 
     let syntax = ps
         .find_syntax_by_extension(file_extension)
         .unwrap_or(ps.find_syntax_plain_text());
-    let mut h = HighlightLines::new(syntax, &ts.themes["Solarized (dark)"]);
+    let Some(theme) = ts.themes.get("Solarized (dark)") else {
+        return plain_preview(content);
+    };
+    let mut h = HighlightLines::new(syntax, theme);
 
     let mut lines = Vec::new();
     for line in LinesWithEndings::from(content) {
-        let spans: Vec<Span> = h
-            .highlight_line(line, &ps)
-            .unwrap()
-            .into_iter()
-            .filter_map(|segment| syntect_tui::into_span(segment).ok())
-            .collect();
+        let spans: Vec<Span<'static>> = match h.highlight_line(line, ps) {
+            Ok(regions) => regions
+                .into_iter()
+            .filter_map(|segment| {
+                syntect_tui::into_span(segment)
+                    .ok()
+                        .map(|span| {
+                            Span::styled(
+                                span.content.to_string(),
+                                span.style.bg(Color::Reset),
+                            )
+                        })
+            })
+                .collect(),
+            Err(_) => vec![Span::raw(line.to_string())],
+        };
 
-        let line = Line::from(spans);
-        lines.push(line);
+        lines.push(Line::from(spans));
     }
 
     lines
+}
+
+fn plain_preview(content: &str) -> Vec<Line<'static>> {
+    content
+        .lines()
+        .map(|line| Line::from(line.to_string()))
+        .collect()
 }

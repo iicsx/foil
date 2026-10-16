@@ -78,7 +78,7 @@ impl Default for App<'_> {
             mode: Mode::default(),
             buffer_content: String::from(""),
             child_preview: String::from(""),
-            buffer_storage: buffer_storage,
+            buffer_storage,
             yank_buffer: YankBuffer::new(),
             undo_stack: UndoStack::new(),
             command: None,
@@ -100,6 +100,7 @@ impl Default for App<'_> {
 }
 
 impl App<'_> {
+    /*
     fn new(mode: Mode, buffer_content: String, path: &str) -> Self {
         let mut undo_stack = UndoStack::new();
         undo_stack.push(buffer_content.clone(), 0, 0);
@@ -113,9 +114,9 @@ impl App<'_> {
             mode,
             buffer_content: buffer_content.clone(),
             child_preview: String::from(""),
-            buffer_storage: buffer_storage,
+            buffer_storage,
             yank_buffer: YankBuffer::new(),
-            undo_stack: undo_stack,
+            undo_stack,
             path: PathHelper::new(path, &system::pwd()),
 
             parent_pane: None,
@@ -131,6 +132,7 @@ impl App<'_> {
             current_file_size: String::new(),
         }
     }
+    */
 
     pub fn tick(&self) {}
 
