@@ -8,8 +8,8 @@ use crate::utils::{
     yank_buffer::YankBuffer,
 };
 use crossterm::cursor::SetCursorStyle;
-use ratatui::widgets::Paragraph;
-use std::{error, fmt, fs, path::Path, result::Result};
+use ratatui::{prelude::Rect, widgets::Paragraph};
+use std::{error, fmt, fs, path::Path, rc::Rc, result::Result};
 
 #[derive(Debug, Default, Clone)]
 pub enum Mode {
@@ -47,6 +47,7 @@ pub struct App<'a> {
     pub running: bool,
     pub mode: Mode,
     pub buffer_content: String,
+    pub offset_top: usize,
     pub child_preview: String,
     pub buffer_storage: BufferStorage,
     pub yank_buffer: YankBuffer,
@@ -54,6 +55,7 @@ pub struct App<'a> {
     pub command: Option<String>,
     pub path: PathHelper,
 
+    pub layout: Rc<[Rect]>,
     pub parent_pane: Option<Paragraph<'a>>,
     pub current_pane: Option<Paragraph<'a>>,
     pub child_pane: Option<Paragraph<'a>>,
@@ -77,12 +79,14 @@ impl Default for App<'_> {
             running: true,
             mode: Mode::default(),
             buffer_content: String::from(""),
+            offset_top: 0,
             child_preview: String::from(""),
             buffer_storage,
             yank_buffer: YankBuffer::new(),
             undo_stack: UndoStack::new(),
             command: None,
             path: PathHelper::new("./", &system::pwd()),
+            layout: Rc::new([]),
 
             parent_pane: None,
             current_pane: None,
@@ -289,6 +293,28 @@ impl App<'_> {
         self.cursor.y = new_y;
     }
 
+    pub fn scroll_down(&mut self) {
+        let lines = self.path.get_file_count().unwrap_or(0);
+        let offset = self.offset_top;
+        let max_height = self.layout[1].height.saturating_sub(2) as usize;
+
+        if offset + max_height >= lines {
+            return;
+        }
+
+        self.offset_top += 1;
+        self.rerender_dir_content = true;
+    }
+
+    pub fn scroll_up(&mut self) {
+        if self.offset_top == 0 {
+            return;
+        }
+
+        self.offset_top -= 1;
+        self.rerender_dir_content = true;
+    }
+
     pub fn get_end_x(&self, s: &str, start: usize, inclusive: bool) -> usize {
         let current_char = s.chars().nth(start.max(1) - 1).unwrap_or('.');
         if !current_char.is_alphanumeric() {
@@ -324,11 +350,7 @@ impl App<'_> {
     }
 
     pub fn delete_word(&mut self, x: u16, y: u16) {
-        let mut lines: Vec<String> = self
-            .buffer_content
-            .lines()
-            .map(String::from)
-            .collect();
+        let mut lines: Vec<String> = self.buffer_content.lines().map(String::from).collect();
 
         if y as usize >= lines.len() {
             return;

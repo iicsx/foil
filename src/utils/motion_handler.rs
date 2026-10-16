@@ -158,6 +158,7 @@ pub mod handler {
 
     pub fn j(app: &mut App) -> Result<(), std::io::Error> {
         let x = app.get_line_length(app.cursor.y).unwrap_or(0);
+        let max_y = app.layout[1].height.saturating_sub(2) as usize;
 
         if app.cursor.x > x.try_into().unwrap_or(0) {
             app.cursor.x = x.try_into().unwrap_or(0).max(1);
@@ -167,7 +168,11 @@ pub mod handler {
             return Ok(());
         }
 
-        app.cursor.down();
+        if app.cursor.y >= max_y.try_into().unwrap_or(0) - 1 {
+            app.scroll_down();
+        } else {
+            app.cursor.down();
+        }
 
         Ok(())
     }
@@ -183,7 +188,11 @@ pub mod handler {
             app.cursor.x = x.try_into().unwrap_or(0).max(1);
         }
 
-        app.cursor.up();
+        if app.offset_top > 0 && app.cursor.y <= 3 {
+            app.scroll_up();
+        } else {
+            app.cursor.up();
+        }
 
         Ok(())
     }
@@ -209,6 +218,9 @@ pub mod handler {
         if app.cursor.x >= length {
             app.cursor.x = length;
         }
+
+        app.offset_top = 0;
+        app.rerender_dir_content = true;
     }
 
     #[allow(non_snake_case)]

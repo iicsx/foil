@@ -40,6 +40,7 @@ pub fn render(app: &mut App, frame: &mut Frame) {
             Constraint::Ratio(1, 2),
         ])
         .split(chunks[1]);
+    app.layout = body_chunks.clone();
 
     let body = render_utils::get_body(app, body_chunks[2].height.saturating_sub(2) as usize);
     frame.render_widget(body.parent, body_chunks[0]);
