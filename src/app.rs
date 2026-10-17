@@ -175,16 +175,17 @@ impl App<'_> {
 
     pub fn insert_at(&mut self, x: u16, y: u16, content: &str) {
         let mut lines: Vec<String> = self.buffer_content.lines().map(String::from).collect();
-
-        let line = &mut lines[y as usize];
-
-        if x as usize > line.len() {
+        let Some(line) = lines.get_mut(y as usize) else {
             return;
-        }
+        };
+
+        let Some(byte_x) = char_to_byte_index(line, x as usize) else {
+            return;
+        };
 
         let identifier = line.clone();
 
-        line.insert_str(x as usize, content);
+        line.insert_str(byte_x, content);
 
         let view = self.buffer_storage.get_view(&self.path.get_absolute_path());
         if let Some(mut view) = view {
@@ -208,12 +209,15 @@ impl App<'_> {
         }
 
         let line = &mut lines[y as usize];
-        if x as usize >= line.len() {
+        let Some(start) = char_to_byte_index(line, x as usize) else {
             return;
-        }
+        };
+        let Some(end) = char_to_byte_index(line, x as usize + 1) else {
+            return;
+        };
         let identifier = line.clone();
 
-        line.remove(x as usize);
+        line.replace_range(start..end, "");
 
         let view = self.buffer_storage.get_view(&self.path.get_absolute_path());
         if let Some(mut view) = view {
@@ -234,13 +238,18 @@ impl App<'_> {
 
         let line = &mut lines[y as usize];
 
-        if x as usize >= line.len() {
+        let Some(start) = char_to_byte_index(line, x as usize) else {
             return;
-        }
+        };
 
-        let end = (x + length as u16).min(line.len() as u16);
+        let end_char = (x as usize)
+            .saturating_add(length)
+            .min(line.chars().count());
+        let Some(end) = char_to_byte_index(line, end_char) else {
+            return;
+        };
 
-        line.replace_range(x as usize..end as usize, "");
+        line.replace_range(start..end, "");
 
         self.buffer_content = lines.join("\n");
     }
@@ -519,5 +528,15 @@ impl App<'_> {
             Ok(metadata) if metadata.is_dir() => FileType::Directory,
             _ => FileType::Unknown,
         }
+    }
+}
+
+fn char_to_byte_index(text: &str, char_index: usize) -> Option<usize> {
+    if char_index == text.chars().count() {
+        Some(text.len())
+    } else {
+        text.char_indices()
+            .nth(char_index)
+            .map(|(byte_index, _)| byte_index)
     }
 }
