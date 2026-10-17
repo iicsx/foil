@@ -14,9 +14,19 @@ impl UndoStack {
     }
 
     pub fn push(&mut self, state: String, x: usize, y: usize) {
+        self.stack.truncate(self.current_index);
+        self.pointers.truncate(self.current_index);
         self.stack.push(state);
         self.pointers.push((x, y));
         self.current_index = self.stack.len();
+    }
+
+    pub fn reset(&mut self, state: String) {
+        self.stack.clear();
+        self.pointers.clear();
+        self.stack.push(state);
+        self.pointers.push((1, 1));
+        self.current_index = 0;
     }
 
     pub fn undo(&mut self) -> Option<String> {
@@ -33,17 +43,11 @@ impl UndoStack {
     }
 
     pub fn redo(&mut self) -> Option<String> {
-        if self.current_index == self.stack.len() - 1 {
-            return None; // already at most recent change
+        if self.current_index >= self.stack.len().saturating_sub(1) {
+            return None;
         }
-
-        if self.current_index < self.stack.len() {
-            let state = &self.stack[self.current_index];
-            self.current_index += 1;
-            Some(state.clone())
-        } else {
-            None
-        }
+        self.current_index += 1;
+        Some(self.stack[self.current_index].clone())
     }
 
     pub fn get_pointers(&self) -> Option<(usize, usize)> {

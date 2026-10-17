@@ -109,6 +109,7 @@ pub fn get_body<'a>(app: &'a mut App, child_max_lines: usize) -> BodyLayout<'a> 
         current_files.insert(0, String::from("../"));
 
         app.buffer_content = current_files.join("\n");
+        app.undo_stack.reset(app.buffer_content.clone());
         app.rerender_dir_content = false;
     }
 
