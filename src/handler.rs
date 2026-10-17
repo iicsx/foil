@@ -1,11 +1,8 @@
 use crate::app::{App, AppResult, Mode};
-use crate::utils::{
-    buffer_storage::{FileEntry, FileType, State},
-    motion_handler::handler as motion_handler,
-    system,
-};
+use crate::utils::{buffer_storage::State, motion_handler::handler as motion_handler, system};
 use crossterm::event::{KeyCode, KeyEvent};
 use crossterm::{cursor::SetCursorStyle, execute};
+use std::path::Path;
 
 /// Handles the key events and updates the state of [`App`].
 pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
@@ -331,25 +328,30 @@ pub fn handle_confirm(key_event: &KeyEvent, app: &mut App) -> AppResult<()> {
             let files_to_move = app.get_files(State::Moved);
 
             for file in files_to_delete {
-                let _ = system::delete_file(condense_path_name(file))?;
+                system::delete_file(
+                    Path::new(&file.dir)
+                        .join(&file.name)
+                        .to_string_lossy()
+                        .into_owned(),
+                )?;
             }
             for file in files_to_rename {
-                let new_file_name = file
-                    .name
-                    .clone()
-                    .trim()
-                    .to_string()
-                    .trim_start_matches("./")
-                    .trim_start_matches("/")
-                    .to_string();
-                let _ = system::rename_file(file.original_name.clone(), new_file_name)?;
+                system::rename_file(
+                    Path::new(&file.original_dir)
+                        .join(&file.original_name)
+                        .to_string_lossy()
+                        .into_owned(),
+                    Path::new(&file.dir)
+                        .join(file.name.trim())
+                        .to_string_lossy()
+                        .into_owned(),
+                )?;
             }
             for file in files_to_create {
-                let new_file_name = file.name.clone().trim().to_string();
-                let _ = system::create_file(&file.original_dir, new_file_name)?;
+                system::create_file(&file.original_dir, file.name.trim().to_string())?;
             }
             for file in files_to_move {
-                let _ = system::move_file(file.original_dir, file.original_name, file.dir)?;
+                system::move_file(file.original_dir, file.original_name, file.dir)?;
             }
 
             app.command = None;
@@ -375,36 +377,4 @@ pub fn handle_confirm(key_event: &KeyEvent, app: &mut App) -> AppResult<()> {
     }
 
     Ok(())
-}
-
-fn condense_path_name(file: FileEntry) -> String {
-    let pwd = system::pwd();
-    let path = file.dir.clone();
-    let path = path
-        .trim_start_matches(pwd.as_str())
-        .trim_start_matches("./")
-        .trim_start_matches("../");
-
-    let file_name = file
-        .name
-        .trim()
-        .trim_start_matches("./")
-        .trim_start_matches("/");
-
-    let mut name = match path.ends_with("/") {
-        true => format!("{}{}", path, file_name),
-        false => {
-            if path.is_empty() {
-                return file_name.to_string();
-            }
-
-            format!("{}/{}", path, file_name)
-        }
-    };
-
-    if file.file_type == FileType::Directory {
-        name += "/";
-    }
-
-    name
 }

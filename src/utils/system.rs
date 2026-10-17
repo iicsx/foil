@@ -119,41 +119,29 @@ fn human_size(bytes: u64) -> String {
 }
 
 pub fn delete_file(file_name: String) -> Result<String, std::io::Error> {
-    let output = std::process::Command::new("rm")
-        .arg("-rf")
-        .arg(file_name)
-        .output()?;
-
-    let result = String::from_utf8_lossy(&output.stdout);
-
-    Ok(result.trim().to_string())
+    let path = Path::new(&file_name);
+    let metadata = fs::symlink_metadata(path)?;
+    if metadata.file_type().is_dir() {
+        fs::remove_dir(path)?;
+    } else {
+        fs::remove_file(path)?;
+    }
+    Ok(String::new())
 }
 
 pub fn rename_file(old_name: String, new_name: String) -> Result<String, std::io::Error> {
-    let output = std::process::Command::new("mv")
-        .arg(old_name)
-        .arg(new_name)
-        .output()?;
-
-    let result = String::from_utf8_lossy(&output.stdout);
-
-    Ok(result.trim().to_string())
+    fs::rename(old_name, new_name)?;
+    Ok(String::new())
 }
 
 pub fn create_file(dir: &str, file_name: String) -> Result<String, std::io::Error> {
-    let cmd = if file_name.ends_with("/") {
-        "mkdir"
+    let path = Path::new(dir).join(&file_name);
+    if file_name.ends_with("/") {
+        fs::create_dir(path)?;
     } else {
-        "touch"
-    };
-
-    let full_path = format!("{}/{}", dir, file_name);
-
-    let output = std::process::Command::new(cmd).arg(full_path).output()?;
-
-    let result = String::from_utf8_lossy(&output.stdout);
-
-    Ok(result.trim().to_string())
+        fs::File::create(path)?;
+    }
+    Ok(String::new())
 }
 
 pub fn move_file(
@@ -161,14 +149,10 @@ pub fn move_file(
     file_name: String,
     new_dir: String,
 ) -> Result<String, std::io::Error> {
-    let output = std::process::Command::new("mv")
-        .arg(format!("{}/{}", original_dir, file_name))
-        .arg(new_dir)
-        .output()?;
-
-    let result = String::from_utf8_lossy(&output.stdout);
-
-    Ok(result.trim().to_string())
+    let source = Path::new(&original_dir).join(&file_name);
+    let destination = Path::new(&new_dir).join(&file_name);
+    fs::rename(source, destination)?;
+    Ok(String::new())
 }
 
 pub fn get_file_preview(file_name: String, max_lines: usize) -> Result<String, std::io::Error> {
