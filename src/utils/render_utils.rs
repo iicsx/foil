@@ -91,26 +91,15 @@ pub fn get_body<'a>(app: &'a mut App, child_max_lines: usize) -> BodyLayout<'a> 
         .map(|s| PathHelper::trim_path(s.as_str()))
         .collect::<Vec<_>>();
 
-    current_files.sort_by(|a: &String, b: &String| {
-        let file_type_a = app.get_file_type(&current_dir.get_absolute_path(), a);
-        let file_type_b = app.get_file_type(&current_dir.get_absolute_path(), b);
-
-        match (file_type_a, file_type_b) {
-            (FileType::Directory, FileType::File) => std::cmp::Ordering::Less,
-            (FileType::File, FileType::Directory) => std::cmp::Ordering::Greater,
-            _ => a.to_lowercase().cmp(&b.to_lowercase()),
-        }
-    });
+    sort_names(
+        app,
+        &current_dir.get_absolute_path(),
+        &mut current_files,
+        true,
+    );
 
     if app.rerender_dir_content {
-        let offset = app.offset_top;
-        let end = std::cmp::min(offset + app.layout[1].height as usize, current_files.len());
-        let mut current_files = current_files[offset..end].to_vec();
-        current_files.insert(0, String::from("../"));
-
-        app.buffer_content = current_files.join("\n");
-        app.undo_stack.reset(app.buffer_content.clone());
-        app.rerender_dir_content = false;
+        refresh_current_buffer(app, &current_files);
     }
 
     let mut parent_dir: PathHelper = current_dir.clone();
@@ -122,16 +111,12 @@ pub fn get_body<'a>(app: &'a mut App, child_max_lines: usize) -> BodyLayout<'a> 
         .map(|s| PathHelper::trim_path(s.as_str()))
         .collect::<Vec<_>>();
 
-    parent_files.sort_by(|a: &String, b: &String| {
-        let file_type_a = app.get_file_type(&parent_dir.get_absolute_path(), a);
-        let file_type_b = app.get_file_type(&parent_dir.get_absolute_path(), b);
-
-        match (file_type_a, file_type_b) {
-            (FileType::Directory, FileType::File) => std::cmp::Ordering::Less,
-            (FileType::File, FileType::Directory) => std::cmp::Ordering::Greater,
-            _ => a.cmp(b),
-        }
-    });
+    sort_names(
+        app,
+        &parent_dir.get_absolute_path(),
+        &mut parent_files,
+        false,
+    );
 
     let left = Paragraph::new(
         parent_files
@@ -141,7 +126,7 @@ pub fn get_body<'a>(app: &'a mut App, child_max_lines: usize) -> BodyLayout<'a> 
                     get_line_colors(app, &parent_dir.get_absolute_path(), line, &current_folder);
 
                 Line::from(vec![Span::styled(
-                    format!("{:<width$}", line, width = u16::MAX as usize),
+                    line.clone(),
                     Style::default().bg(bg).fg(fg),
                 )])
             })
@@ -154,11 +139,13 @@ pub fn get_body<'a>(app: &'a mut App, child_max_lines: usize) -> BodyLayout<'a> 
             .border_type(BorderType::Rounded),
     );
 
-    let current_view = &app
+    let current_view_path = app.path.get_absolute_path();
+    let current_view = app
         .buffer_storage
-        .get_view(&app.path.get_absolute_path())
-        .unwrap_or_else(|| app.buffer_storage.get_view(&system::pwd()).unwrap())
-        .dir;
+        .views
+        .get(&current_view_path)
+        .map(|view| view.dir.as_str())
+        .unwrap_or(&current_view_path);
 
     let hovered_file = app.get_hovered_filename();
 
@@ -169,7 +156,7 @@ pub fn get_body<'a>(app: &'a mut App, child_max_lines: usize) -> BodyLayout<'a> 
                 let (bg, fg) = get_line_colors(app, current_view, line, &hovered_file);
 
                 Line::from(Span::styled(
-                    format!("{:<width$}", line, width = u16::MAX as usize),
+                    line.to_string(),
                     Style::default().bg(bg).fg(fg),
                 ))
             })
@@ -203,6 +190,45 @@ pub fn get_body<'a>(app: &'a mut App, child_max_lines: usize) -> BodyLayout<'a> 
         parent: left,
         current: middle,
         child: right,
+    }
+}
+
+fn refresh_current_buffer(app: &mut App, files: &[String]) {
+    let offset = app.offset_top.min(files.len());
+    let visible_height = app
+        .layout
+        .get(1)
+        .map(|pane| pane.height as usize)
+        .unwrap_or(0);
+    let end = offset.saturating_add(visible_height).min(files.len());
+    let mut visible_files = files[offset..end].to_vec();
+    visible_files.insert(0, String::from("../"));
+
+    app.buffer_content = visible_files.join("\n");
+    app.undo_stack.reset(app.buffer_content.clone());
+    app.rerender_dir_content = false;
+}
+
+fn sort_names(app: &App, directory: &str, names: &mut [String], ignore_case: bool) {
+    let mut entries = names
+        .iter()
+        .map(|name| {
+            (
+                name.clone(),
+                app.get_file_type(directory, name),
+                ignore_case.then(|| name.to_lowercase()),
+            )
+        })
+        .collect::<Vec<_>>();
+    entries.sort_by(|a, b| match (&a.1, &b.1) {
+        (FileType::Directory, FileType::File) => std::cmp::Ordering::Less,
+        (FileType::File, FileType::Directory) => std::cmp::Ordering::Greater,
+        _ if ignore_case => a.2.cmp(&b.2),
+        _ => a.0.cmp(&b.0),
+    });
+
+    for (name, (sorted_name, _, _)) in names.iter_mut().zip(entries) {
+        *name = sorted_name;
     }
 }
 
@@ -343,20 +369,16 @@ pub fn get_file_preview_content<'a>(
 
     let mut child_view = current_view.clone();
     let _ = child_view.cd(&hovered_file);
-    let child_view = match app.buffer_storage.get_view(&child_view.get_absolute_path()) {
-        Some(view) => view,
-        None => {
-            let _ = app.buffer_storage.add_view(child_view.get_absolute_path());
-
-            app.buffer_storage
-                .get_view(&child_view.get_absolute_path())
-                .unwrap_or_else(|| {
-                    app.buffer_storage
-                        .get_view(&app.path.get_absolute_path())
-                        .unwrap()
-                })
-        }
-    };
+    let child_view_path = child_view.get_absolute_path();
+    if !app.buffer_storage.views.contains_key(&child_view_path) {
+        let _ = app.buffer_storage.add_view(child_view_path.clone());
+    }
+    let child_view_dir = app
+        .buffer_storage
+        .views
+        .get(&child_view_path)
+        .map(|view| view.dir.clone())
+        .unwrap_or(child_view_path);
 
     let mut files = match file_type {
         FileType::File => {
@@ -412,7 +434,7 @@ pub fn get_file_preview_content<'a>(
                 .unwrap_or("Error Reading".to_string())
                 .lines()
                 .map(|line| {
-                    let (bg, fg) = get_line_colors(app, &child_view.dir, line, &hovered_file);
+                    let (bg, fg) = get_line_colors(app, &child_view_dir, line, &hovered_file);
 
                     Line::from(vec![Span::styled(
                         line.to_string(),
@@ -429,7 +451,7 @@ pub fn get_file_preview_content<'a>(
 
             err.lines()
                 .map(|line| {
-                    let (bg, fg) = get_line_colors(app, &child_view.dir, line, &hovered_file);
+                    let (bg, fg) = get_line_colors(app, &child_view_dir, line, &hovered_file);
 
                     Line::from(vec![Span::styled(
                         line.to_string(),
@@ -442,8 +464,8 @@ pub fn get_file_preview_content<'a>(
 
     if file_type == FileType::Directory {
         files.sort_by(|a: &Line, b: &Line| {
-            let file_type_a = app.get_file_type(&child_view.dir, a.to_string().as_str());
-            let file_type_b = app.get_file_type(&child_view.dir, b.to_string().as_str());
+            let file_type_a = app.get_file_type(&child_view_dir, a.to_string().as_str());
+            let file_type_b = app.get_file_type(&child_view_dir, b.to_string().as_str());
 
             match (file_type_a, file_type_b) {
                 (FileType::Directory, FileType::File) => std::cmp::Ordering::Less,
