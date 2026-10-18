@@ -1,15 +1,10 @@
 // Important for pasting. Keeping track of the yank type makes pasting easier
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub enum YankType {
     Char,
+    #[default]
     Line,
     Word,
-}
-
-impl Default for YankType {
-    fn default() -> Self {
-        Self::Line
-    }
 }
 
 #[derive(Debug, Default)]
