@@ -152,7 +152,7 @@ impl PathHelper {
 
         let new_path = Path::new(&full_path);
 
-        if !new_path.exists() {
+        if !new_path.is_dir() {
             return Err(if path == ".." || path == "../" {
                 PathError::NoParent
             } else {
@@ -173,7 +173,7 @@ impl PathHelper {
         let full_path: String = path_str.to_string() + "/" + path;
         let new_path = Path::new(&full_path);
 
-        if !new_path.exists() {
+        if !new_path.is_dir() {
             return Err(PathError::InvalidPath);
         }
 
@@ -188,7 +188,7 @@ impl PathHelper {
     pub fn set_path(&mut self, path: &str) -> Result<(), PathError> {
         let new_path = Path::new(path);
 
-        if !new_path.exists() {
+        if !new_path.is_dir() {
             return Err(PathError::InvalidPath);
         }
 

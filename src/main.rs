@@ -24,29 +24,31 @@ async fn main() -> AppResult<()> {
     let events = EventHandler::new(250);
     let mut tui = Tui::new(terminal, events);
     tui.init()?;
+    let result = async {
+        let _ = crossterm::execute!(std::io::stdout(), SetCursorStyle::SteadyBlock);
 
-    let _ = crossterm::execute!(std::io::stdout(), SetCursorStyle::SteadyBlock);
+        app.path = file_helper::PathHelper::new(".", &system::pwd());
+        app.buffer_storage.add_view(app.path.get_absolute_path())?;
+        let parent = match app.path.get_parent() {
+            Ok(path) => path,
+            Err(_) => file_helper::PathHelper::new("..", &system::pwd()),
+        };
+        app.buffer_storage.add_view(parent.get_absolute_path())?;
 
-    app.path = file_helper::PathHelper::new(".", &system::pwd());
-    app.buffer_storage.add_view(app.path.get_absolute_path())?;
-    let parent = match app.path.get_parent() {
-        Ok(path) => path,
-        Err(_) => file_helper::PathHelper::new("..", &system::pwd()),
-    };
-    app.buffer_storage.add_view(parent.get_absolute_path())?;
-
-    while app.running {
-        tui.draw(&mut app)?;
-
-        match tui.events.next().await? {
-            Event::Tick => app.tick(),
-            Event::Key(key_event) => handler::handle_key_events(key_event, &mut app)?,
-            Event::Mouse(_) => {}
-            Event::Resize(_, _) => {}
+        while app.running {
+            tui.draw(&mut app)?;
+            match tui.events.next().await? {
+                Event::Tick => app.tick(),
+                Event::Key(key_event) => handler::handle_key_events(key_event, &mut app)?,
+                Event::Mouse(_) | Event::Resize(_, _) => {}
+            }
         }
+        Ok(())
     }
+    .await;
 
-    tui.exit()?;
-
+    let exit_result = tui.exit();
+    result?;
+    exit_result?;
     Ok(())
 }
