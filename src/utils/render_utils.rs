@@ -249,6 +249,7 @@ pub fn get_confirmation_content<'a>(block: &Block<'a>, app: &mut App) -> Paragra
     let files_created = app.get_files(State::Created);
     let files_deleted = app.get_files(State::Deleted);
     let files_moved = app.get_files(State::Moved);
+    let launch_dir = Path::new(&system::pwd()).to_path_buf();
 
     let lines_modified = files_modified
         .iter()
@@ -283,9 +284,11 @@ pub fn get_confirmation_content<'a>(block: &Block<'a>, app: &mut App) -> Paragra
     let lines_moved = files_moved
         .iter()
         .map(|file| {
+            let from = relative_file_path(&launch_dir, &file.original_dir, &file.original_name);
+            let to = relative_file_path(&launch_dir, &file.dir, &file.name);
             Line::from(vec![
                 Span::styled("MOVE ", Style::default().fg(Color::Magenta)),
-                Span::raw(file.name.clone()),
+                Span::raw(format!("{} -> {}", from, to)),
             ])
         })
         .collect::<Vec<_>>();
@@ -298,6 +301,14 @@ pub fn get_confirmation_content<'a>(block: &Block<'a>, app: &mut App) -> Paragra
         .collect::<Vec<_>>();
 
     Paragraph::new(all_lines).block(block.clone())
+}
+
+fn relative_file_path(launch_dir: &Path, directory: &str, name: &str) -> String {
+    let path = Path::new(directory).join(name);
+    path.strip_prefix(launch_dir)
+        .unwrap_or(&path)
+        .to_string_lossy()
+        .into_owned()
 }
 
 pub fn get_line_colors(
