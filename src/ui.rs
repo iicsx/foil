@@ -35,9 +35,9 @@ pub fn render(app: &mut App, frame: &mut Frame) {
     let body_chunks = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
-            Constraint::Ratio(1, 4),
+            Constraint::Ratio(1, 6),
             Constraint::Ratio(1, 3),
-            Constraint::Ratio(1, 2),
+            Constraint::Ratio(1, 1),
         ])
         .split(chunks[1]);
     app.layout = body_chunks.clone();
