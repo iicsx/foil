@@ -1,22 +1,18 @@
-use crate::{
-    app::{App, AppResult},
-    event::{Event, EventHandler},
-    tui::Tui,
-    utils::{file_helper, system},
-};
-use crossterm::cursor::SetCursorStyle;
+use crate::{app::App, event::EventHandler, tui::Tui, utils::file_helper};
 use ratatui::{backend::CrosstermBackend, Terminal};
-use std::{io, process::Command};
+use std::io;
 
 pub mod app;
+pub mod editor;
 pub mod event;
 pub mod handler;
+pub mod runtime;
 pub mod tui;
 pub mod ui;
 pub mod utils;
 
 #[tokio::main]
-async fn main() -> AppResult<()> {
+async fn main() -> app::AppResult<()> {
     let mut app = App::default();
 
     let backend = CrosstermBackend::new(io::stdout());
@@ -24,52 +20,8 @@ async fn main() -> AppResult<()> {
     let events = EventHandler::new(250);
     let mut tui = Tui::new(terminal, events);
     tui.init()?;
-    let result: AppResult<()> = async {
-        let _ = crossterm::execute!(std::io::stdout(), SetCursorStyle::SteadyBlock);
 
-        app.path = file_helper::PathHelper::new(".", &system::pwd());
-        app.buffer_storage.add_view(app.path.get_absolute_path())?;
-        let parent = match app.path.get_parent() {
-            Ok(path) => path,
-            Err(_) => file_helper::PathHelper::new("..", &system::pwd()),
-        };
-        app.buffer_storage.add_view(parent.get_absolute_path())?;
-
-        while app.running {
-            tui.draw(&mut app)?;
-            match tui.events.next().await? {
-                Event::Tick => app.tick(),
-                Event::Key(key_event) => {
-                    handler::handle_key_events(key_event, &mut app)?;
-                    if let Some(file_path) = app.pending_editor_path.take() {
-                        tui.events.stop();
-                        tui.suspend()?;
-                        let editor_result = Command::new("nvim").arg(&file_path).status();
-                        let resume_result = tui.resume();
-
-                        resume_result?;
-                        tui.events.clear_pending();
-                        tui.events = EventHandler::new(250);
-                        app.command_buffer.clear();
-                        app.set_mode(app::Mode::Normal)?;
-                        app.rerender_dir_content = true;
-                        match editor_result {
-                            Ok(status) if status.success() => {}
-                            Ok(status) => {
-                                eprintln!("Neovim exited with status {status}");
-                            }
-                            Err(error) => {
-                                eprintln!("Could not launch Neovim: {error}");
-                            }
-                        }
-                    }
-                }
-                Event::Mouse(_) | Event::Resize(_, _) => {}
-            }
-        }
-        Ok(())
-    }
-    .await;
+    let result = runtime::run_event_loop(&mut app, &mut tui).await;
 
     let exit_result = tui.exit();
     result?;
