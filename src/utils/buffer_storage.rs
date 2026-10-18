@@ -143,22 +143,31 @@ impl DirBuffer {
     }
 
     pub fn set_name(&mut self, name: &str, new_name: &str) {
-        if let Some((_, mut file)) = self.files.remove_entry(name) {
-            file.name = new_name.to_string();
+        let Some(mut file) = self.files.remove(name) else {
+            return;
+        };
 
-            if file.state == State::Created {
-                self.files.insert(new_name.to_string(), file);
-                return;
-            }
-
-            if file.original_name == name {
-                file.state = State::Unmodified;
+        // Keep the entry's original identity while its displayed name changes.
+        // If the user edits the name back to its original value, this also
+        // naturally cancels the pending rename.
+        file.name = new_name.to_string();
+        if file.state != State::Created {
+            file.state = if file.name == file.original_name {
+                State::Unmodified
             } else {
-                file.state = State::Modified;
-            }
-
-            self.files.insert(new_name.to_string(), file);
+                State::Modified
+            };
         }
+
+        // Do not silently replace another tracked file if a name is duplicated.
+        // In that case retain the edited entry under a unique internal key;
+        // normal directory names are unique, but transient text edits need not be.
+        let key = if self.files.contains_key(new_name) {
+            format!("{}\0{}", new_name, file.original_name)
+        } else {
+            new_name.to_string()
+        };
+        self.files.insert(key, file);
     }
 
     pub fn set_path(&mut self, name: &str, path: &str) {

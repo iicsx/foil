@@ -11,7 +11,7 @@ use ratatui::{
     layout::{Constraint, Flex, Layout, Rect},
     style::{Color, Style},
     text::{Line, Span},
-    widgets::{Block, BorderType, Borders, Paragraph},
+    widgets::{Block, BorderType, Borders, Paragraph, Wrap},
 };
 use std::{
     collections::HashMap,
@@ -22,6 +22,7 @@ use std::{
 use syntect::{
     easy::HighlightLines, highlighting::ThemeSet, parsing::SyntaxSet, util::LinesWithEndings,
 };
+use unicode_width::UnicodeWidthChar;
 
 pub struct BodyLayout<'a> {
     pub parent: Paragraph<'a>,
@@ -150,22 +151,33 @@ pub fn get_body<'a>(app: &'a mut App, child_max_lines: usize) -> BodyLayout<'a> 
             .border_type(BorderType::Rounded),
     );
 
-    let right = Paragraph::new(get_file_preview_content(
-        app,
-        hovered_file.clone(),
-        current_dir.clone(),
-        child_max_lines,
-    ))
-    .block(
-        Block::default()
-            .title(if hovered_file == "../" {
-                "Parent Directory".to_string()
-            } else {
-                hovered_file
-            })
-            .borders(Borders::ALL)
-            .border_type(BorderType::Rounded),
+    let preview_width = app
+        .layout
+        .get(2)
+        .map(|pane| pane.width.saturating_sub(4) as usize)
+        .unwrap_or(0);
+    let preview_lines = wrap_preview_lines(
+        get_file_preview_content(
+            app,
+            hovered_file.clone(),
+            current_dir.clone(),
+            child_max_lines,
+        ),
+        preview_width,
     );
+
+    let right = Paragraph::new(preview_lines)
+        .wrap(Wrap { trim: false })
+        .block(
+            Block::default()
+                .title(if hovered_file == "../" {
+                    "Parent Directory".to_string()
+                } else {
+                    hovered_file
+                })
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded),
+        );
 
     BodyLayout {
         parent: left,
@@ -184,6 +196,20 @@ fn refresh_current_buffer(app: &mut App, files: &[String]) {
     let end = offset.saturating_add(visible_height).min(files.len());
     let mut visible_files = files[offset..end].to_vec();
     visible_files.insert(0, String::from("../"));
+
+    // Keep pending names visible when a resize or directory refresh occurs.
+    if let Some(view) = app.buffer_storage.get_view(&app.path.get_absolute_path()) {
+        for file in view.files.values() {
+            if file.state != crate::utils::buffer_storage::State::Unmodified {
+                if let Some(existing) = visible_files
+                    .iter_mut()
+                    .find(|name| **name == file.original_name)
+                {
+                    *existing = file.name.clone();
+                }
+            }
+        }
+    }
 
     app.buffer_content = visible_files.join("\n");
     app.undo_stack.reset(app.buffer_content.clone());
@@ -520,4 +546,45 @@ fn plain_preview(content: &str) -> Vec<Line<'static>> {
         .lines()
         .map(|line| Line::from(line.to_string()))
         .collect()
+}
+
+fn wrap_preview_lines<'a>(lines: Vec<Line<'a>>, width: usize) -> Vec<Line<'a>> {
+    if width == 0 {
+        return lines;
+    }
+
+    let mut wrapped = Vec::new();
+    for line in lines {
+        let mut current_spans = Vec::new();
+        let mut current_width = 0;
+
+        for span in line.spans {
+            let style = span.style;
+            for ch in span.content.chars() {
+                let char_width = UnicodeWidthChar::width(ch).unwrap_or(0);
+                if char_width > 0 && current_width + char_width > width {
+                    wrapped.push(Line::from(std::mem::take(&mut current_spans)));
+                    current_width = 0;
+                }
+
+                if ch == '\t' {
+                    let spaces = 4 - (current_width % 4);
+                    for _ in 0..spaces {
+                        if current_width == width {
+                            wrapped.push(Line::from(std::mem::take(&mut current_spans)));
+                            current_width = 0;
+                        }
+                        current_spans.push(Span::styled(" ", style));
+                        current_width += 1;
+                    }
+                } else if !ch.is_control() {
+                    current_spans.push(Span::styled(ch.to_string(), style));
+                    current_width += char_width;
+                }
+            }
+        }
+
+        wrapped.push(Line::from(current_spans));
+    }
+    wrapped
 }

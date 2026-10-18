@@ -135,6 +135,29 @@ impl App<'_> {
         self.buffer_content += "\n";
     }
 
+    fn set_buffer_lines(&mut self, lines: Vec<String>) {
+        self.buffer_content = lines.join("\n");
+    }
+
+    fn sync_filename_edit(&mut self, old_name: &str, new_name: &str, row: usize) {
+        if row == 0 || old_name.trim() == new_name.trim() {
+            return;
+        }
+        let current_path = self.path.get_absolute_path();
+        let Some(view) = self.buffer_storage.get_view_mut(&current_path) else {
+            return;
+        };
+        let old_name = old_name.trim();
+        let new_name = new_name.trim();
+        if old_name.is_empty() {
+            if !new_name.is_empty() && !view.files.contains_key(new_name) {
+                view.add_file(new_name, FileType::File);
+            }
+        } else {
+            view.set_name(old_name, new_name);
+        }
+    }
+
     pub fn insert_at(&mut self, x: u16, y: u16, content: &str) {
         let mut lines: Vec<String> = self.buffer_content.lines().map(String::from).collect();
         let Some(line) = lines.get_mut(y as usize) else {
@@ -145,20 +168,11 @@ impl App<'_> {
             return;
         };
 
-        let identifier = line.clone();
-
+        let old_name = line.clone();
         line.insert_str(byte_x, content);
-
-        let current_path = self.path.get_absolute_path();
-        if let Some(view) = self.buffer_storage.get_view_mut(&current_path) {
-            if identifier.trim().is_empty() {
-                view.add_file(line, FileType::File);
-            } else {
-                view.set_name(&identifier, line);
-            }
-        }
-
-        self.buffer_content = lines.join("\n");
+        let new_name = line.clone();
+        self.set_buffer_lines(lines);
+        self.sync_filename_edit(&old_name, &new_name, y as usize);
     }
 
     pub fn delete_at(&mut self, x: u16, y: u16) {
@@ -174,16 +188,11 @@ impl App<'_> {
         let Some(end) = char_to_byte_index(line, x as usize + 1) else {
             return;
         };
-        let identifier = line.clone();
-
+        let old_name = line.clone();
         line.replace_range(start..end, "");
-
-        let current_path = self.path.get_absolute_path();
-        if let Some(view) = self.buffer_storage.get_view_mut(&current_path) {
-            view.set_name(&identifier, line);
-        }
-
-        self.buffer_content = lines.join("\n");
+        let new_name = line.clone();
+        self.set_buffer_lines(lines);
+        self.sync_filename_edit(&old_name, &new_name, y as usize);
     }
 
     pub fn delete_range(&mut self, x: u16, y: u16, length: usize) {
@@ -206,9 +215,11 @@ impl App<'_> {
             return;
         };
 
+        let old_name = line.clone();
         line.replace_range(start..end, "");
-
-        self.buffer_content = lines.join("\n");
+        let new_name = line.clone();
+        self.set_buffer_lines(lines);
+        self.sync_filename_edit(&old_name, &new_name, y as usize);
     }
 
     pub fn delete_line_full(&mut self, y: u16) {
@@ -218,9 +229,15 @@ impl App<'_> {
             return;
         }
 
-        lines.remove(y as usize);
+        let removed = lines.remove(y as usize).trim().to_string();
 
-        self.buffer_content = lines.join("\n");
+        self.set_buffer_lines(lines.iter().map(|line| (*line).to_string()).collect());
+        if y > 0 && removed != "../" {
+            let current_path = self.path.get_absolute_path();
+            if let Some(view) = self.buffer_storage.get_view_mut(&current_path) {
+                view.delete_file(&removed);
+            }
+        }
     }
 
     pub fn delete_line(&mut self, y: u16) {
@@ -234,9 +251,13 @@ impl App<'_> {
             return;
         }
 
+        let removed = lines[y as usize].clone();
         lines[y as usize].clear();
 
-        self.buffer_content = lines.join("\n");
+        self.set_buffer_lines(lines);
+        if y > 0 {
+            self.sync_filename_edit(&removed, "", y as usize);
+        }
     }
 
     pub fn move_max_x(&mut self) {
@@ -338,9 +359,11 @@ impl App<'_> {
             return;
         };
 
+        let old_name = line.clone();
         line.replace_range(start_byte..end_byte, "");
-
-        self.buffer_content = lines.join("\n");
+        let new_name = line.clone();
+        self.set_buffer_lines(lines);
+        self.sync_filename_edit(&old_name, &new_name, y as usize);
     }
 
     pub fn merge_lines(&self, y1: usize, y2: usize) -> Result<String, std::io::Error> {
@@ -464,12 +487,38 @@ impl App<'_> {
                 self.cursor.x = x as u16;
                 self.cursor.y = y as u16;
             }
+            self.sync_visible_file_names();
         }
     }
 
     pub fn redo(&mut self) {
         if let Some(redo) = self.undo_stack.redo() {
             self.buffer_content = redo;
+            self.sync_visible_file_names();
+        }
+    }
+
+    fn sync_visible_file_names(&mut self) {
+        let path = self.path.get_absolute_path();
+        let Some(view) = self.buffer_storage.get_view_mut(&path) else {
+            return;
+        };
+        let lines = self.buffer_content.lines().collect::<Vec<_>>();
+        for (index, name) in lines.iter().enumerate().skip(1) {
+            let name = name.trim();
+            if name.is_empty() {
+                continue;
+            }
+            let key = view
+                .files
+                .iter()
+                .find(|(_, file)| file.name.trim() == name || file.original_name == name)
+                .map(|(key, _)| key.clone());
+            if let Some(key) = key {
+                view.set_name(&key, name);
+            } else if index > 0 && !view.files.values().any(|file| file.name.trim() == name) {
+                view.add_file(name, FileType::File);
+            }
         }
     }
 
