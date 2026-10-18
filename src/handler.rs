@@ -1,7 +1,6 @@
 use crate::app::{App, AppResult, Mode};
 use crate::utils::{buffer_storage::State, motion_handler::handler as motion_handler, system};
 use crossterm::event::{KeyCode, KeyEvent};
-use crossterm::{cursor::SetCursorStyle, execute};
 use std::path::Path;
 
 /// Handles the key events and updates the state of [`App`].
@@ -74,14 +73,7 @@ fn handle_normal_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         KeyCode::Char('P') => motion_handler::P(app),
 
         KeyCode::Enter => {
-            let line = {
-                let buffer_content = &app.buffer_content;
-                buffer_content
-                    .lines()
-                    .nth(app.cursor.y as usize - 1)
-                    .unwrap_or("")
-                    .to_string()
-            };
+            let line = app.current_line().to_string();
             let path = app.path.get_absolute_path();
             let is_dir = system::is_dir(format!("{}/{}", path, line));
             if is_dir {
@@ -107,7 +99,6 @@ fn handle_insert_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         KeyCode::Esc => {
             app.cursor.left();
             app.set_mode(Mode::Normal)?;
-            let _ = execute!(std::io::stdout(), SetCursorStyle::SteadyBlock);
         }
         KeyCode::Char(' ') => {
             app.insert_at(app.cursor.x - 1, app.cursor.y - 1, " ");
@@ -223,7 +214,6 @@ fn handle_visual_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
     if key_event.code == KeyCode::Esc {
         app.cursor.left();
         app.set_mode(Mode::Normal)?;
-        let _ = execute!(std::io::stdout(), SetCursorStyle::SteadyBlock);
     };
 
     Ok(())
@@ -287,23 +277,7 @@ fn handle_compound_inputs(
             return Ok(());
         }
 
-        // TODO consider moving this into a separate "execute" call
-        match command.as_str() {
-            "gg" => app.cursor.reset_y(),
-            "cj" => motion_handler::cj(app),
-            "ck" => motion_handler::ck(app),
-            "dj" => motion_handler::dj(app),
-            "dk" => motion_handler::dk(app),
-            "dd" => motion_handler::dd(app),
-            "cc" => motion_handler::cc(app),
-            "dw" => motion_handler::dw(app),
-            "cw" => motion_handler::cw(app),
-            "yy" => motion_handler::yy(app),
-            "yiw" => motion_handler::yiw(app),
-            "ciw" => motion_handler::ciw(app),
-            "diw" => motion_handler::diw(app),
-            _ => {}
-        }
+        execute_compound_command(&command, app);
 
         app.command_buffer.clear();
     }
@@ -319,40 +293,29 @@ fn handle_compound_inputs(
     Ok(())
 }
 
+fn execute_compound_command(command: &str, app: &mut App) {
+    match command {
+        "gg" => app.cursor.reset_y(),
+        "cj" => motion_handler::cj(app),
+        "ck" => motion_handler::ck(app),
+        "dj" => motion_handler::dj(app),
+        "dk" => motion_handler::dk(app),
+        "dd" => motion_handler::dd(app),
+        "cc" => motion_handler::cc(app),
+        "dw" => motion_handler::dw(app),
+        "cw" => motion_handler::cw(app),
+        "yy" => motion_handler::yy(app),
+        "yiw" => motion_handler::yiw(app),
+        "ciw" => motion_handler::ciw(app),
+        "diw" => motion_handler::diw(app),
+        _ => {}
+    }
+}
+
 pub fn handle_confirm(key_event: &KeyEvent, app: &mut App) -> AppResult<()> {
     match key_event.code {
         KeyCode::Char('y') => {
-            let files_to_delete = app.get_files(State::Deleted);
-            let files_to_rename = app.get_files(State::Modified);
-            let files_to_create = app.get_files(State::Created);
-            let files_to_move = app.get_files(State::Moved);
-
-            for file in files_to_delete {
-                system::delete_file(
-                    Path::new(&file.dir)
-                        .join(&file.name)
-                        .to_string_lossy()
-                        .into_owned(),
-                )?;
-            }
-            for file in files_to_rename {
-                system::rename_file(
-                    Path::new(&file.original_dir)
-                        .join(&file.original_name)
-                        .to_string_lossy()
-                        .into_owned(),
-                    Path::new(&file.dir)
-                        .join(file.name.trim())
-                        .to_string_lossy()
-                        .into_owned(),
-                )?;
-            }
-            for file in files_to_create {
-                system::create_file(&file.original_dir, file.name.trim().to_string())?;
-            }
-            for file in files_to_move {
-                system::move_file(file.original_dir, file.original_name, file.dir)?;
-            }
+            apply_pending_files(app)?;
 
             app.command = None;
             app.set_mode(Mode::Normal)?;
@@ -376,5 +339,55 @@ pub fn handle_confirm(key_event: &KeyEvent, app: &mut App) -> AppResult<()> {
         _ => {}
     }
 
+    Ok(())
+}
+
+fn apply_pending_files(app: &App) -> AppResult<()> {
+    delete_pending_files(app.get_files(State::Deleted))?;
+    rename_pending_files(app.get_files(State::Modified))?;
+    create_pending_files(app.get_files(State::Created))?;
+    move_pending_files(app.get_files(State::Moved))?;
+    Ok(())
+}
+
+fn delete_pending_files(files: Vec<crate::utils::buffer_storage::FileEntry>) -> AppResult<()> {
+    for file in files {
+        system::delete_file(
+            Path::new(&file.dir)
+                .join(&file.name)
+                .to_string_lossy()
+                .into_owned(),
+        )?;
+    }
+    Ok(())
+}
+
+fn rename_pending_files(files: Vec<crate::utils::buffer_storage::FileEntry>) -> AppResult<()> {
+    for file in files {
+        system::rename_file(
+            Path::new(&file.original_dir)
+                .join(&file.original_name)
+                .to_string_lossy()
+                .into_owned(),
+            Path::new(&file.dir)
+                .join(file.name.trim())
+                .to_string_lossy()
+                .into_owned(),
+        )?;
+    }
+    Ok(())
+}
+
+fn create_pending_files(files: Vec<crate::utils::buffer_storage::FileEntry>) -> AppResult<()> {
+    for file in files {
+        system::create_file(&file.original_dir, file.name.trim().to_string())?;
+    }
+    Ok(())
+}
+
+fn move_pending_files(files: Vec<crate::utils::buffer_storage::FileEntry>) -> AppResult<()> {
+    for file in files {
+        system::move_file(file.original_dir, file.original_name, file.dir)?;
+    }
     Ok(())
 }
