@@ -34,7 +34,7 @@ fn handle_normal_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         .command_buffer
         .is_initializer(&key_event.code.to_string());
 
-    if (buffer_empty && is_valid_init) || (!buffer_empty) {
+    if key_event.code != KeyCode::Enter && ((buffer_empty && is_valid_init) || (!buffer_empty)) {
         handle_compound_inputs(key_event, app)?;
         return Ok(());
     }
@@ -84,7 +84,13 @@ fn handle_normal_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
                 app.cursor.reset_x();
                 app.cursor.reset_y();
             } else {
-                println!("Not implemented");
+                let file_path = Path::new(&path).join(&line);
+                // Keep the existing browser loop alive while Neovim owns the
+                // terminal. The loop processes this action after the handler
+                // returns.
+                app.pending_editor_path = Some(file_path);
+                app.command_buffer.clear();
+                app.set_mode(Mode::Normal)?;
             }
         }
 

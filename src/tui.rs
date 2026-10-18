@@ -55,6 +55,22 @@ impl<B: Backend> Tui<B> {
         Ok(())
     }
 
+    /// Temporarily hand the terminal to a child interactive program.
+    pub fn suspend(&mut self) -> AppResult<()> {
+        Self::reset()?;
+        self.terminal.show_cursor()?;
+        Ok(())
+    }
+
+    /// Restore the terminal after a child interactive program exits.
+    pub fn resume(&mut self) -> AppResult<()> {
+        terminal::enable_raw_mode()?;
+        crossterm::execute!(io::stdout(), EnterAlternateScreen, EnableMouseCapture)?;
+        self.terminal.hide_cursor()?;
+        self.terminal.clear()?;
+        Ok(())
+    }
+
     /// Resets the terminal interface.
     ///
     /// This function is also used for the panic hook to revert

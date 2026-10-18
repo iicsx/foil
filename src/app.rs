@@ -9,7 +9,7 @@ use crate::utils::{
 };
 use crossterm::cursor::SetCursorStyle;
 use ratatui::{prelude::Rect, widgets::Paragraph};
-use std::{error, fmt, fs, path::Path, rc::Rc, result::Result};
+use std::{error, fmt, fs, path::{Path, PathBuf}, rc::Rc, result::Result};
 
 #[derive(Debug, Default, Clone)]
 pub enum Mode {
@@ -54,6 +54,7 @@ pub struct App<'a> {
     pub undo_stack: UndoStack,
     pub command: Option<String>,
     pub path: PathHelper,
+    pub pending_editor_path: Option<PathBuf>,
 
     pub layout: Rc<[Rect]>,
     pub parent_pane: Option<Paragraph<'a>>,
@@ -86,6 +87,7 @@ impl Default for App<'_> {
             undo_stack: UndoStack::new(),
             command: None,
             path: PathHelper::new("./", &system::pwd()),
+            pending_editor_path: None,
             layout: Rc::new([]),
 
             parent_pane: None,

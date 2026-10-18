@@ -6,7 +6,7 @@ use crate::{
 };
 use crossterm::cursor::SetCursorStyle;
 use ratatui::{backend::CrosstermBackend, Terminal};
-use std::io;
+use std::{io, process::Command};
 
 pub mod app;
 pub mod event;
@@ -39,7 +39,31 @@ async fn main() -> AppResult<()> {
             tui.draw(&mut app)?;
             match tui.events.next().await? {
                 Event::Tick => app.tick(),
-                Event::Key(key_event) => handler::handle_key_events(key_event, &mut app)?,
+                Event::Key(key_event) => {
+                    handler::handle_key_events(key_event, &mut app)?;
+                    if let Some(file_path) = app.pending_editor_path.take() {
+                        tui.events.stop();
+                        tui.suspend()?;
+                        let editor_result = Command::new("nvim").arg(&file_path).status();
+                        let resume_result = tui.resume();
+
+                        resume_result?;
+                        tui.events.clear_pending();
+                        tui.events = EventHandler::new(250);
+                        app.command_buffer.clear();
+                        app.set_mode(app::Mode::Normal)?;
+                        app.rerender_dir_content = true;
+                        match editor_result {
+                            Ok(status) if status.success() => {}
+                            Ok(status) => {
+                                eprintln!("Neovim exited with status {status}");
+                            }
+                            Err(error) => {
+                                eprintln!("Could not launch Neovim: {error}");
+                            }
+                        }
+                    }
+                }
                 Event::Mouse(_) | Event::Resize(_, _) => {}
             }
         }

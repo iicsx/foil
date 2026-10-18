@@ -79,6 +79,16 @@ impl EventHandler {
         }
     }
 
+    /// Stop reading terminal input. Use this while another program owns the terminal.
+    pub fn stop(&mut self) {
+        self.handler.abort();
+    }
+
+    /// Discard terminal events collected before the input reader was stopped.
+    pub fn clear_pending(&mut self) {
+        while self.receiver.try_recv().is_ok() {}
+    }
+
     /// Receive the next event from the handler thread.
     ///
     /// This function will always block the current thread if
