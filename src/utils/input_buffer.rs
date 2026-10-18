@@ -1,10 +1,10 @@
 use regex::Regex;
+use std::sync::OnceLock;
 
 #[derive(Debug, Clone)]
 pub struct InputBuffer {
     initializers: Vec<String>,
     pub buffer: String,
-    pattern: String,
 }
 
 impl InputBuffer {
@@ -17,9 +17,6 @@ impl InputBuffer {
                 String::from("f"),
             ],
             buffer: String::new(),
-            pattern: String::from(
-                r#"^(([cdy][ai][wWeEbB\(\)\[\]\{\}"'`])|([cd]f.)|(g[gfd])|([cd][GwWeEbBhjkl\{\}$0])|([cd](gg|ga))|(\d+[hjklwWbBeE])|(\d+[cd][wWeEbB])|yy|cc|dd|([cd][fFtT].))$"#,
-            ),
         }
     }
 
@@ -40,11 +37,15 @@ impl InputBuffer {
     }
 
     pub fn valid(&self) -> Result<bool, regex::Error> {
-        let rx = Regex::new(&self.pattern)?;
+        static COMMAND_PATTERN: OnceLock<Regex> = OnceLock::new();
+        let rx = COMMAND_PATTERN.get_or_init(|| {
+            Regex::new(
+                r#"^(([cdy][ai][wWeEbB\(\)\[\]\{\}"'`])|([cd]f.)|(g[gfd])|([cd][GwWeEbBhjkl\{\}$0])|([cd](gg|ga))|(\d+[hjklwWbBeE])|(\d+[cd][wWeEbB])|yy|cc|dd|([cd][fFtT].))$"#,
+            )
+            .expect("the built-in command pattern is valid")
+        });
 
-        let result = rx.is_match(&self.buffer);
-
-        Ok(result)
+        Ok(rx.is_match(&self.buffer))
     }
 }
 
