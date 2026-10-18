@@ -227,6 +227,7 @@ version = "0.1.0"
 dependencies = [
  "crossterm",
  "futures",
+ "libc",
  "ratatui",
  "regex",
  "syntect",

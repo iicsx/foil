@@ -42,37 +42,18 @@ pub fn get_header<'a>(block: &Block<'a>, app: &App) -> Paragraph<'a> {
 }
 
 pub fn get_footer<'a>(block: &Block<'a>, app: &App) -> Paragraph<'a> {
-    let spans: Line = match app.mode {
-        Mode::Command => Line::from(vec![Span::raw(format!(
-            ":{}",
-            app.command.clone().unwrap_or("".to_string())
-        ))]),
-        _ => Line::from(vec![
-            Span::styled(format!("{}", app.mode), Style::default().fg(Color::White)),
-            Span::styled(
-                format!(
-                    " {}        ",
-                    system::get_file_permission(format!(
-                        "{}/{}",
-                        app.path.get_path_str(),
-                        app.get_hovered_filename()
-                    ))
-                ),
-                Style::default().fg(Color::Magenta),
-            ),
-            Span::styled(
-                format!(
-                    " {}        ",
-                    system::get_file_size(format!(
-                        "{}/{}",
-                        app.path.get_path_str(),
-                        app.get_hovered_filename()
-                    ))
-                ),
-                Style::default().fg(Color::Green),
-            ),
-        ]),
+    let filename = app.get_hovered_filename();
+    let path = Path::new(&app.path.get_absolute_path()).join(&filename);
+    let status = system::get_file_permissions(&path)
+        .unwrap_or_else(|_| format!("?????????? - - - - {}", filename));
+    let mode = match app.mode {
+        Mode::Command => format!(":{}", app.command.as_deref().unwrap_or("")),
+        _ => format!("{}", app.mode),
     };
+    let spans = Line::from(vec![
+        Span::styled(format!("  {} | ", mode), Style::default().fg(Color::White)),
+        Span::styled(status, Style::default().fg(Color::Magenta)),
+    ]);
 
     Paragraph::new(spans).block(block.clone())
 }
@@ -249,10 +230,10 @@ pub fn get_current_file(app: &App) -> String {
     app.get_hovered_filename()
 }
 
-pub fn get_current_file_permissions(app: &App) -> String {
+pub fn get_current_file_permissions(app: &App) -> std::io::Result<String> {
     let filename = app.get_hovered_filename();
 
-    system::get_file_permission(filename)
+    system::get_file_permission(&filename)
 }
 
 pub fn get_current_file_size(app: &App) -> String {
