@@ -7,14 +7,7 @@ pub mod handler {
     pub fn dd(app: &mut App) {
         let current_path: String = app.path.get_absolute_path().to_string();
 
-        let line = {
-            let buffer_content = &app.buffer_content;
-            buffer_content
-                .lines()
-                .nth(app.cursor.y as usize - 1)
-                .unwrap_or("")
-                .to_string()
-        };
+        let line = app.current_line().to_string();
 
         if app.cursor.y == app.buffer_content.lines().count().try_into().unwrap_or(0) {
             app.delete_line_full(app.cursor.y - 1);
@@ -41,23 +34,14 @@ pub mod handler {
         app.yank_buffer
             .set_original_dir(app.path.get_absolute_path().to_string());
 
-        if let Some(mut view) = app.buffer_storage.get_view(&current_path) {
-            view.set_state(line.trim(), State::Deleted);
-            app.buffer_storage.update_view(&current_path, view)
-        }
+        app.buffer_storage
+            .set_file_state(&current_path, line.trim(), State::Deleted);
     }
 
     pub fn cc(app: &mut App) {
         let current_path: String = app.path.get_absolute_path().to_string();
 
-        let line = {
-            let buffer_content = &app.buffer_content;
-            buffer_content
-                .lines()
-                .nth(app.cursor.y as usize - 1)
-                .unwrap_or("")
-                .to_string()
-        };
+        let line = app.current_line().to_string();
 
         app.delete_line(app.cursor.y - 1);
         app.cursor.reset_x();
@@ -66,22 +50,13 @@ pub mod handler {
 
         let _ = app.set_mode(Mode::Insert);
 
-        if let Some(mut view) = app.buffer_storage.get_view(&current_path) {
-            view.set_state(line.trim(), State::Deleted);
-            app.buffer_storage.update_view(&current_path, view)
-        }
+        app.buffer_storage
+            .set_file_state(&current_path, line.trim(), State::Deleted);
     }
 
     pub fn dw(app: &mut App) {
         let current_path: String = app.path.get_absolute_path().to_string();
-        let line = {
-            let buffer_content = &app.buffer_content;
-            buffer_content
-                .lines()
-                .nth(app.cursor.y as usize - 1)
-                .unwrap_or("")
-                .to_string()
-        };
+        let line = app.current_line().to_string();
 
         app.delete_word(app.cursor.x - 1, app.cursor.y - 1);
 
@@ -97,10 +72,8 @@ pub mod handler {
 
         app.yank_buffer.set_content(line.clone());
 
-        if let Some(mut view) = app.buffer_storage.get_view(&current_path) {
-            view.set_state(line.trim(), State::Deleted);
-            app.buffer_storage.update_view(&current_path, view)
-        }
+        app.buffer_storage
+            .set_file_state(&current_path, line.trim(), State::Deleted);
     }
 
     pub fn cw(app: &mut App) {
@@ -158,7 +131,11 @@ pub mod handler {
 
     pub fn j(app: &mut App) -> Result<(), std::io::Error> {
         let x = app.get_line_length(app.cursor.y).unwrap_or(0);
-        let max_y = app.layout[1].height.saturating_sub(2) as usize;
+        let max_y = app
+            .layout
+            .get(1)
+            .map(|pane| pane.height.saturating_sub(2) as usize)
+            .unwrap_or(0);
 
         if app.cursor.x > x.try_into().unwrap_or(0) {
             app.cursor.x = x.try_into().unwrap_or(0).max(1);
@@ -168,7 +145,7 @@ pub mod handler {
             return Ok(());
         }
 
-        if app.cursor.y >= max_y.try_into().unwrap_or(0) - 1 {
+        if max_y > 0 && usize::from(app.cursor.y) >= max_y.saturating_sub(1) {
             app.scroll_down();
         } else {
             app.cursor.down();
@@ -230,13 +207,9 @@ pub mod handler {
     }
 
     pub fn w(app: &mut App) {
-        let line = app
-            .buffer_content
-            .lines()
-            .nth(app.cursor.y as usize - 1)
-            .unwrap_or("");
+        let line = app.current_line().to_string();
         let x = app.cursor.x as usize;
-        let new_x = app.get_end_x(line, x, true);
+        let new_x = app.get_end_x(&line, x, true);
 
         if new_x - 1 == app.get_line_length(app.cursor.y - 1).unwrap_or(0)
             && (usize::from(app.cursor.y) < app.get_line_count())
@@ -244,16 +217,12 @@ pub mod handler {
             app.cursor.down();
             app.cursor.reset_x();
         } else {
-            app.cursor.move_word(line, new_x);
+            app.cursor.move_word(&line, new_x);
         }
     }
 
     pub fn b(app: &mut App) {
-        let line = app
-            .buffer_content
-            .lines()
-            .nth(app.cursor.y as usize - 1)
-            .unwrap_or("");
+        let line = app.current_line().to_string();
         let x = app.cursor.x as usize;
 
         if x <= 1 && app.cursor.y > 1 {
@@ -264,8 +233,8 @@ pub mod handler {
                 .try_into()
                 .unwrap_or(1);
         } else {
-            let new_x = app.get_start_x(line, x);
-            app.cursor.move_word(line, new_x);
+            let new_x = app.get_start_x(&line, x);
+            app.cursor.move_word(&line, new_x);
         }
     }
 
@@ -313,18 +282,11 @@ pub mod handler {
     pub fn diw(app: &mut App) {
         let current_path: String = app.path.get_absolute_path().to_string();
 
-        let line = {
-            let buffer_content = &app.buffer_content;
-            buffer_content
-                .lines()
-                .nth(app.cursor.y as usize - 1)
-                .unwrap_or("")
-                .to_string()
-        };
+        let line = app.current_line().to_string();
 
         let x = app.cursor.x as usize;
-        let start_index = app.seek_special_character_backward(&line.to_string(), x);
-        let end_index = app.seek_special_character_forward(&line.to_string(), x);
+        let start_index = app.seek_special_character_backward(&line, x);
+        let end_index = app.seek_special_character_forward(&line, x);
 
         app.delete_range(
             start_index.try_into().unwrap_or(0),
@@ -335,12 +297,9 @@ pub mod handler {
         app.cursor.x = start_index.try_into().unwrap_or(1);
         app.cursor.right(0);
 
-        app.yank_buffer.set_content(line.to_string());
-
-        if let Some(mut view) = app.buffer_storage.get_view(&current_path) {
-            view.set_state(line.trim(), State::Deleted);
-            app.buffer_storage.update_view(&current_path, view)
-        }
+        app.buffer_storage
+            .set_file_state(&current_path, line.trim(), State::Deleted);
+        app.yank_buffer.set_content(line);
     }
 
     pub fn ciw(app: &mut App) {
@@ -353,30 +312,24 @@ pub mod handler {
     }
 
     pub fn yy(app: &mut App) {
-        let line = app
-            .buffer_content
-            .lines()
-            .nth(app.cursor.y as usize - 1)
-            .unwrap_or("");
+        let line = app.current_line().to_string();
 
-        app.yank_buffer.set_content(line.to_string());
+        app.yank_buffer.set_content(line);
         app.yank_buffer
             .set_original_dir(app.path.get_absolute_path().to_string());
         app.yank_buffer.set_yank_type(YankType::Line);
     }
 
     pub fn yiw(app: &mut App) {
-        let line = app
-            .buffer_content
-            .lines()
-            .nth(app.cursor.y as usize - 1)
-            .unwrap_or("");
+        let line = app.current_line().to_string();
 
         let x = app.cursor.x as usize;
-        let start_index = app.seek_special_character_backward(line, x);
-        let end_index = app.seek_special_character_forward(line, x);
+        let start_index = app.seek_special_character_backward(&line, x);
+        let end_index = app.seek_special_character_forward(&line, x);
 
-        let content = &line[start_index..end_index];
+        let Some(content) = App::get_character_range(&line, start_index, end_index) else {
+            return;
+        };
         app.yank_buffer.set_content(content.to_string());
         app.yank_buffer
             .set_original_dir(app.path.get_absolute_path().to_string());
@@ -407,10 +360,9 @@ pub mod handler {
 
                 app.cursor.reset_x();
 
-                if let Some(mut view) = app.buffer_storage.get_view(&original_dir) {
+                if let Some(view) = app.buffer_storage.get_view_mut(&original_dir) {
                     view.set_state(&content, State::Moved);
                     view.set_path(&content, &current_path);
-                    app.buffer_storage.update_view(&original_dir, view)
                 }
             }
             YankType::Char | YankType::Word => {

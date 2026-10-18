@@ -104,40 +104,6 @@ impl Default for App<'_> {
 }
 
 impl App<'_> {
-    /*
-    fn new(mode: Mode, buffer_content: String, path: &str) -> Self {
-        let mut undo_stack = UndoStack::new();
-        undo_stack.push(buffer_content.clone(), 0, 0);
-
-        let mut buffer_storage = BufferStorage::new();
-        let _ = buffer_storage.add_view(path.to_string());
-
-        Self {
-            running: true,
-            command: None,
-            mode,
-            buffer_content: buffer_content.clone(),
-            child_preview: String::from(""),
-            buffer_storage,
-            yank_buffer: YankBuffer::new(),
-            undo_stack,
-            path: PathHelper::new(path, &system::pwd()),
-
-            parent_pane: None,
-            current_pane: None,
-            child_pane: None,
-
-            cursor: Cursor::default(),
-            command_buffer: InputBuffer::new(),
-            need_confirmation: false,
-            rerender_dir_content: true,
-            hostname: format!("{}@{}", system::whoami().trim(), system::hostname().trim()),
-            current_file_permissions: String::new(),
-            current_file_size: String::new(),
-        }
-    }
-    */
-
     pub fn tick(&self) {}
 
     pub fn quit(&mut self) {
@@ -145,18 +111,14 @@ impl App<'_> {
     }
 
     pub fn set_mode(&mut self, mode: Mode) -> Result<(), Box<dyn std::error::Error>> {
-        self.mode = mode.clone();
-
-        match mode {
-            Mode::Normal => crossterm::execute!(std::io::stdout(), SetCursorStyle::SteadyBlock)?,
-            Mode::Visual => crossterm::execute!(std::io::stdout(), SetCursorStyle::SteadyBlock)?,
-            Mode::Pending => {
-                crossterm::execute!(std::io::stdout(), SetCursorStyle::SteadyUnderScore)?
-            }
-            Mode::Insert => crossterm::execute!(std::io::stdout(), SetCursorStyle::BlinkingBar)?,
-            _ => crossterm::execute!(std::io::stdout(), SetCursorStyle::SteadyBlock)?,
+        let cursor_style = match &mode {
+            Mode::Pending => SetCursorStyle::SteadyUnderScore,
+            Mode::Insert => SetCursorStyle::BlinkingBar,
+            _ => SetCursorStyle::SteadyBlock,
         };
 
+        crossterm::execute!(std::io::stdout(), cursor_style)?;
+        self.mode = mode;
         Ok(())
     }
 
@@ -187,16 +149,13 @@ impl App<'_> {
 
         line.insert_str(byte_x, content);
 
-        let view = self.buffer_storage.get_view(&self.path.get_absolute_path());
-        if let Some(mut view) = view {
+        let current_path = self.path.get_absolute_path();
+        if let Some(view) = self.buffer_storage.get_view_mut(&current_path) {
             if identifier.trim().is_empty() {
                 view.add_file(line, FileType::File);
             } else {
                 view.set_name(&identifier, line);
             }
-
-            self.buffer_storage
-                .update_view(&self.path.get_absolute_path(), view);
         }
 
         self.buffer_content = lines.join("\n");
@@ -219,11 +178,9 @@ impl App<'_> {
 
         line.replace_range(start..end, "");
 
-        let view = self.buffer_storage.get_view(&self.path.get_absolute_path());
-        if let Some(mut view) = view {
+        let current_path = self.path.get_absolute_path();
+        if let Some(view) = self.buffer_storage.get_view_mut(&current_path) {
             view.set_name(&identifier, line);
-            self.buffer_storage
-                .update_view(&self.path.get_absolute_path(), view);
         }
 
         self.buffer_content = lines.join("\n");
@@ -305,7 +262,10 @@ impl App<'_> {
     pub fn scroll_down(&mut self) {
         let lines = self.path.get_file_count().unwrap_or(0);
         let offset = self.offset_top;
-        let max_height = self.layout[1].height.saturating_sub(2) as usize;
+        let Some(current_pane) = self.layout.get(1) else {
+            return;
+        };
+        let max_height = current_pane.height.saturating_sub(2) as usize;
 
         if offset + max_height >= lines {
             return;
@@ -325,16 +285,14 @@ impl App<'_> {
     }
 
     pub fn get_end_x(&self, s: &str, start: usize, inclusive: bool) -> usize {
-        let current_char = s.chars().nth(start.max(1) - 1).unwrap_or('.');
+        let chars = s.chars().collect::<Vec<_>>();
+        let current_char = chars.get(start.max(1) - 1).copied().unwrap_or('.');
         if !current_char.is_alphanumeric() {
             return start + 1;
         }
 
         let mut end = start;
-        while end < s.len() && s.chars().nth(end).unwrap_or(' ').is_alphanumeric() {
-            if s.chars().nth(end).unwrap() == ' ' {
-                break;
-            }
+        while chars.get(end).is_some_and(|ch| ch.is_alphanumeric()) {
             end += 1;
         }
 
@@ -349,9 +307,10 @@ impl App<'_> {
         if start <= 1 {
             return 1;
         }
+        let chars = s.chars().collect::<Vec<_>>();
         let mut end = start - 1;
 
-        while end > 1 && s.chars().nth(end - 1).unwrap_or(' ').is_alphanumeric() {
+        while end > 1 && chars.get(end - 1).is_some_and(|ch| ch.is_alphanumeric()) {
             end -= 1;
         }
 
@@ -367,19 +326,25 @@ impl App<'_> {
 
         let line = &mut lines[y as usize];
 
-        if x as usize >= line.len() || line.is_empty() {
+        if x as usize >= line.chars().count() || line.is_empty() {
             return;
         }
 
         let end = self.get_end_x(line, x as usize, false);
+        let Some(start_byte) = char_to_byte_index(line, x as usize) else {
+            return;
+        };
+        let Some(end_byte) = char_to_byte_index(line, end) else {
+            return;
+        };
 
-        line.replace_range(x as usize..end, "");
+        line.replace_range(start_byte..end_byte, "");
 
         self.buffer_content = lines.join("\n");
     }
 
     pub fn merge_lines(&self, y1: usize, y2: usize) -> Result<String, std::io::Error> {
-        let lines: Vec<&str> = self.buffer_content.lines().collect();
+        let mut lines: Vec<String> = self.buffer_content.lines().map(str::to_owned).collect();
 
         if y1 >= lines.len() || y2 >= lines.len() {
             return Err(std::io::Error::new(
@@ -388,21 +353,33 @@ impl App<'_> {
             ));
         }
 
-        let line1 = lines[y1];
-        let line2 = lines[y2];
+        if y2 != y1 + 1 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Lines to merge must be adjacent",
+            ));
+        }
 
-        let mut new_buffer_content = self.buffer_content.clone();
-        // [FIXME]
-        new_buffer_content.replace_range(
-            new_buffer_content.find(line1).unwrap()..new_buffer_content.find(line2).unwrap(),
-            line1, // idk why but this works
-        );
-
-        Ok(new_buffer_content)
+        let next_line = lines.remove(y2);
+        lines[y1].push_str(&next_line);
+        Ok(lines.join("\n"))
     }
 
     pub fn get_line_count(&self) -> usize {
         self.buffer_content.lines().count()
+    }
+
+    pub fn get_character_range(s: &str, start: usize, end: usize) -> Option<&str> {
+        let start_byte = char_to_byte_index(s, start)?;
+        let end_byte = char_to_byte_index(s, end)?;
+        s.get(start_byte..end_byte)
+    }
+
+    pub fn current_line(&self) -> &str {
+        self.buffer_content
+            .lines()
+            .nth(self.cursor.y.saturating_sub(1) as usize)
+            .unwrap_or("")
     }
 
     pub fn get_line_length(&self, y: u16) -> Result<usize, std::io::Error> {
@@ -430,9 +407,10 @@ impl App<'_> {
     }
 
     pub fn seek_whitespace_forward(&self, s: &str, start: usize) -> usize {
+        let chars = s.chars().collect::<Vec<_>>();
         let mut end = start;
 
-        while end < s.len() && s.chars().nth(end).unwrap_or(' ').is_whitespace() {
+        while chars.get(end).is_some_and(|ch| ch.is_whitespace()) {
             end += 1;
         }
 
@@ -440,9 +418,10 @@ impl App<'_> {
     }
 
     pub fn seek_whitespace_backward(&self, s: &str, start: usize) -> usize {
+        let chars = s.chars().collect::<Vec<_>>();
         let mut end = start;
 
-        while end > 0 && s.chars().nth(end).unwrap_or(' ').is_whitespace() {
+        while end > 0 && chars.get(end).is_some_and(|ch| ch.is_whitespace()) {
             end -= 1;
         }
 
@@ -450,9 +429,10 @@ impl App<'_> {
     }
 
     pub fn seek_special_character_forward(&self, s: &str, start: usize) -> usize {
+        let chars = s.chars().collect::<Vec<_>>();
         let mut end = start;
 
-        while end < s.len() && s.chars().nth(end).unwrap_or(' ').is_alphanumeric() {
+        while chars.get(end).is_some_and(|ch| ch.is_alphanumeric()) {
             end += 1;
         }
 
@@ -460,14 +440,15 @@ impl App<'_> {
     }
 
     pub fn seek_special_character_backward(&self, s: &str, start: usize) -> usize {
+        let chars = s.chars().collect::<Vec<_>>();
         let mut end = start;
 
-        while end > 0 && s.chars().nth(end).unwrap_or(' ').is_alphanumeric() {
+        while end > 0 && chars.get(end).is_some_and(|ch| ch.is_alphanumeric()) {
             end -= 1;
         }
 
         // make match exclusive
-        if !s.chars().nth(end).unwrap_or(' ').is_alphanumeric() {
+        if !chars.get(end).is_some_and(|ch| ch.is_alphanumeric()) {
             end += 1;
         }
 
@@ -493,17 +474,13 @@ impl App<'_> {
     }
 
     pub fn get_files(&self, state: State) -> Vec<FileEntry> {
-        let views = self.buffer_storage.views.clone();
-        let mut files = Vec::new();
-
-        for (_, view) in views {
-            let files_view = view.get_files_by_state(state.clone());
-            for file in files_view {
-                files.push(file.clone());
-            }
-        }
-
-        files
+        self.buffer_storage
+            .views
+            .values()
+            .flat_map(|view| view.files.values())
+            .filter(|file| file.state == state)
+            .cloned()
+            .collect()
     }
 
     pub fn save(&mut self) {
@@ -517,9 +494,9 @@ impl App<'_> {
             .buffer_storage
             .views
             .get(view)
-            .and_then(|view| view.get_file(filename))
+            .and_then(|view| view.files.get(filename))
         {
-            return file.file_type;
+            return file.file_type.clone();
         }
 
         let path = Path::new(view).join(filename);

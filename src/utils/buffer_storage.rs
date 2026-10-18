@@ -131,7 +131,7 @@ impl DirBuffer {
 
     // filenames must be unique per directory so this should work
     pub fn set_state(&mut self, name: &str, state: State) {
-        if let Some((_, file)) = self.files.iter_mut().find(|(_, file)| file.name == name) {
+        if let Some(file) = self.files.get_mut(name) {
             file.state = state;
         }
     }
@@ -209,10 +209,14 @@ impl DirBuffer {
 
     // these two might be unused tbh
     pub fn get_file_move_dirs(&self, name: &str) -> Option<(String, String)> {
-        self.files.get(name).map(|file| (file.original_dir.clone(), file.dir.clone()))
+        self.files
+            .get(name)
+            .map(|file| (file.original_dir.clone(), file.dir.clone()))
     }
     pub fn get_rename(&self, name: &str) -> Option<(String, String)> {
-        self.files.get(name).map(|file| (file.original_name.clone(), file.name.clone()))
+        self.files
+            .get(name)
+            .map(|file| (file.original_name.clone(), file.name.clone()))
     }
 
     pub fn get_file(&self, name: &str) -> Option<FileEntry> {
@@ -233,7 +237,7 @@ impl BufferStorage {
     }
 
     pub fn add_view(&mut self, dir: String) -> Result<(), std::io::Error> {
-        if self.get_view(&dir).is_some() {
+        if self.views.contains_key(&dir) {
             return Ok(());
         }
 
@@ -258,11 +262,17 @@ impl BufferStorage {
         self.views.get(dir).cloned()
     }
 
-    pub fn update_view(&mut self, dir: &str, buffer: DirBuffer) {
-        if self.views.contains_key(dir) {
-            self.views.remove(dir);
-        }
+    pub fn get_view_mut(&mut self, dir: &str) -> Option<&mut DirBuffer> {
+        self.views.get_mut(dir)
+    }
 
+    pub fn set_file_state(&mut self, dir: &str, name: &str, state: State) {
+        if let Some(view) = self.views.get_mut(dir) {
+            view.set_state(name, state);
+        }
+    }
+
+    pub fn update_view(&mut self, dir: &str, buffer: DirBuffer) {
         self.views.insert(dir.to_string(), buffer);
     }
 

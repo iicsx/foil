@@ -121,8 +121,9 @@ impl Cursor {
     }
 
     pub fn move_word(&mut self, line: &str, new_x: usize) {
-        if new_x > line.len() {
-            self.x = line.len() as u16;
+        let character_count = line.chars().count();
+        if new_x > character_count {
+            self.x = character_count as u16;
         } else {
             self.x = new_x as u16;
         }
