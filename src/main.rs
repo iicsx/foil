@@ -24,7 +24,7 @@ async fn main() -> AppResult<()> {
     let events = EventHandler::new(250);
     let mut tui = Tui::new(terminal, events);
     tui.init()?;
-    let result = async {
+    let result: AppResult<()> = async {
         let _ = crossterm::execute!(std::io::stdout(), SetCursorStyle::SteadyBlock);
 
         app.path = file_helper::PathHelper::new(".", &system::pwd());
