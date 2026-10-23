@@ -57,27 +57,25 @@ pub mod handler {
     pub fn dw(app: &mut App) {
         let current_path: String = app.path.get_absolute_path().to_string();
         let line = app.current_line().to_string();
+        let limit = app.seek_special_character_forward(&line, app.cursor.x as usize);
 
-        app.delete_word(app.cursor.x - 1, app.cursor.y - 1);
+        let word = App::get_character_range(&line, app.cursor.x as usize - 1, limit);
 
-        if app.cursor.x
-            >= app
-                .get_line_length(app.cursor.y - 1)
-                .unwrap_or(0)
-                .try_into()
-                .unwrap_or(0)
-        {
+        if let Some(word) = word {
+            app.delete_range(app.cursor.x - 1, app.cursor.y - 1, word.len());
             app.cursor.left();
+            app.buffer_storage
+                .set_file_state(&current_path, word.trim(), State::Deleted);
+
+            app.yank_buffer.set_content(word.trim().to_string());
+            app.yank_buffer.set_yank_type(YankType::Word);
         }
-
-        app.yank_buffer.set_content(line.clone());
-
-        app.buffer_storage
-            .set_file_state(&current_path, line.trim(), State::Deleted);
     }
 
     pub fn cw(app: &mut App) {
-        app.delete_word(app.cursor.x - 1, app.cursor.y - 1);
+        let word = app.delete_word(app.cursor.x - 1, app.cursor.y - 1);
+        app.yank_buffer.set_content(word);
+        app.yank_buffer.set_yank_type(YankType::Word);
         let _ = app.set_mode(Mode::Insert);
     }
 
@@ -309,6 +307,7 @@ pub mod handler {
 
     pub fn u(app: &mut App) {
         app.undo();
+        app.cursor.reset_x();
     }
 
     pub fn yy(app: &mut App) {
@@ -318,6 +317,22 @@ pub mod handler {
         app.yank_buffer
             .set_original_dir(app.path.get_absolute_path().to_string());
         app.yank_buffer.set_yank_type(YankType::Line);
+    }
+
+    pub fn yw(app: &mut App) {
+        let line = app.current_line().to_string();
+
+        let x = app.cursor.x as usize;
+        let start_index = app.seek_special_character_backward(&line, x);
+        let end_index = app.seek_special_character_forward(&line, x);
+
+        let Some(content) = App::get_character_range(&line, start_index, end_index) else {
+            return;
+        };
+        app.yank_buffer.set_content(content.to_string());
+        app.yank_buffer
+            .set_original_dir(app.path.get_absolute_path().to_string());
+        app.yank_buffer.set_yank_type(YankType::Word);
     }
 
     pub fn yiw(app: &mut App) {
@@ -338,7 +353,6 @@ pub mod handler {
         app.cursor.x = start_index.try_into().unwrap_or(1).max(1);
     }
 
-    // TODO implement Paste - Move file
     pub fn p(app: &mut App) {
         let current_path = app.path.get_absolute_path().to_string();
 
@@ -354,19 +368,27 @@ pub mod handler {
 
         match yank_type {
             YankType::Line => {
-                app.move_max_x();
-                app.insert_at(app.cursor.x, app.cursor.y - 1, &format!("\n{}", content));
+                let row = app.cursor.y.saturating_sub(1) as usize;
+                let mut lines = app
+                    .buffer_content
+                    .lines()
+                    .map(String::from)
+                    .collect::<Vec<_>>();
+                if row >= lines.len() {
+                    return;
+                }
+                lines.insert(row + 1, content.clone());
+                app.buffer_content = lines.join("\n");
                 app.cursor.down();
 
                 app.cursor.reset_x();
 
-                if let Some(view) = app.buffer_storage.get_view_mut(&original_dir) {
-                    view.set_state(&content, State::Moved);
-                    view.set_path(&content, &current_path);
+                if let Some(view) = app.buffer_storage.get_view_mut(&current_path) {
+                    view.add_copy(content.trim(), &original_dir, content.trim());
                 }
             }
             YankType::Char | YankType::Word => {
-                app.insert_at(app.cursor.x - 1, app.cursor.y - 1, &content);
+                app.insert_at(app.cursor.x, app.cursor.y - 1, &content);
                 app.cursor.x += content.len() as u16;
             }
         }

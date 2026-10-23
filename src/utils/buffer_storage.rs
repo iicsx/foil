@@ -43,6 +43,7 @@ pub struct FileEntry {
     pub dir: String,
     pub state: State,
     pub file_type: FileType,
+    pub copy_source: Option<(String, String)>,
 }
 
 #[derive(Debug, Clone)]
@@ -81,6 +82,7 @@ impl DirBuffer {
                         original_dir: dir.clone(),
                         state: State::Unmodified,
                         file_type: get_file_type(&path.to_string_lossy()),
+                        copy_source: None,
                     },
                 );
             }
@@ -107,6 +109,7 @@ impl DirBuffer {
                         original_dir: String::new(),
                         state: State::Unmodified,
                         file_type: get_file_type(trimmed),
+                        copy_source: None,
                     },
                 );
             }
@@ -170,6 +173,18 @@ impl DirBuffer {
         self.files.insert(key, file);
     }
 
+    pub fn set_name_for_edit(&mut self, name: &str, new_name: &str) {
+        let copy_key = self.files.iter().find_map(|(key, file)| {
+            (file.name == name && file.state == State::Created && file.copy_source.is_some())
+                .then(|| key.clone())
+        });
+        if let Some(key) = copy_key {
+            self.set_name(&key, new_name);
+        } else {
+            self.set_name(name, new_name);
+        }
+    }
+
     pub fn set_path(&mut self, name: &str, path: &str) {
         if let Some(file) = self.files.get_mut(name) {
             file.dir = path.to_string();
@@ -205,8 +220,22 @@ impl DirBuffer {
             dir: self.dir.clone(),
             state: State::Created,
             file_type,
+            copy_source: None,
         };
         self.files.insert(name.to_string(), file);
+    }
+
+    pub fn add_copy(&mut self, name: &str, source_dir: &str, source_name: &str) {
+        let file = FileEntry {
+            original_name: name.to_string(),
+            name: name.to_string(),
+            original_dir: self.dir.clone(),
+            dir: self.dir.clone(),
+            state: State::Created,
+            file_type: get_file_type(&format!("{source_dir}/{source_name}")),
+            copy_source: Some((source_dir.to_string(), source_name.to_string())),
+        };
+        self.files.insert(format!("{name}\0copy"), file);
     }
 
     pub fn set_dir(&mut self, name: &str, dir: &str) {

@@ -15,6 +15,8 @@ impl InputBuffer {
                 String::from("d"),
                 String::from("g"),
                 String::from("f"),
+                String::from("F"),
+                String::from("y"),
             ],
             buffer: String::new(),
         }
@@ -40,7 +42,7 @@ impl InputBuffer {
         static COMMAND_PATTERN: OnceLock<Regex> = OnceLock::new();
         let rx = COMMAND_PATTERN.get_or_init(|| {
             Regex::new(
-                r#"^(([cdy][ai][wWeEbB\(\)\[\]\{\}"'`])|([cd]f.)|(g[gfd])|([cd][GwWeEbBhjkl\{\}$0])|([cd](gg|ga))|(\d+[hjklwWbBeE])|(\d+[cd][wWeEbB])|yy|cc|dd|([cd][fFtT].))$"#,
+                r#"^(([cdy][ai][wWeEbB\(\)\[\]\{\}"'`])|([cd]f.)|(g[gfd])|([cdy][GwWeEbBhjkl\{\}$0])|([cd](gg|ga))|(\d+[hjklwWbBeE])|(\d+[cd][wWeEbB])|yy|cc|dd|([cd][fFtT].))$"#,
             )
             .expect("the built-in command pattern is valid")
         });

@@ -134,8 +134,14 @@ pub fn get_body<'a>(app: &'a mut App, child_max_lines: usize) -> BodyLayout<'a> 
     let middle = Paragraph::new(
         app.buffer_content
             .lines()
-            .map(|line| {
-                let (bg, fg) = get_line_colors(app, current_view, line, &hovered_file);
+            .enumerate()
+            .map(|(row, line)| {
+                let (bg, fg) = get_line_colors_for_hover(
+                    app,
+                    current_view,
+                    line,
+                    row == app.cursor.y.saturating_sub(1) as usize,
+                );
 
                 Line::from(Span::styled(
                     line.to_string(),
@@ -350,19 +356,21 @@ pub fn get_line_colors(
     line: &str,
     hovered_file: &str,
 ) -> (Color, Color) {
+    get_line_colors_for_hover(app, current_view, line, line == hovered_file.trim())
+}
+
+fn get_line_colors_for_hover(
+    app: &App,
+    current_view: &str,
+    line: &str,
+    is_hovered: bool,
+) -> (Color, Color) {
     match app.get_file_type(current_view, line.trim()) {
-        FileType::File => match line == hovered_file.trim() {
-            false => (Color::default(), Color::LightGreen),
-            true => (Color::LightGreen, Color::Black),
-        },
-        FileType::Directory => match line == hovered_file.trim() {
-            false => (Color::default(), Color::LightBlue),
-            true => (Color::LightBlue, Color::Black),
-        },
-        FileType::Unknown => match line == hovered_file.trim() {
-            true => (Color::default(), Color::default()),
-            false => (Color::default(), Color::default()),
-        },
+        FileType::File if is_hovered => (Color::White, Color::Black),
+        FileType::File => (Color::default(), Color::LightGreen),
+        FileType::Directory if is_hovered => (Color::Yellow, Color::Black),
+        FileType::Directory => (Color::default(), Color::LightBlue),
+        FileType::Unknown => (Color::default(), Color::default()),
     }
 }
 
