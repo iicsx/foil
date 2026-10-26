@@ -4,8 +4,11 @@ Foil is a heavily opinionated terminal file manager inspired by [oil.nvim](https
 
 Foil is an early-stage project. The interface, keybindings and behaviour will most likely experience some level of change.
 
-[Example Screenshot](assets/example_full_view.png)
-[Example Screenshot Confirmation](assets/example_confirmation.png)
+<p float="left">
+  <img src="assets/exampel_full_view.png" width="100" />
+  <img src="assets/example_confirmation.png" width="100" /> 
+</p>
+
 
 ## Features
 
