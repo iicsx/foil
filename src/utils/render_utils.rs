@@ -238,22 +238,36 @@ fn sort_names(app: &App, directory: &str, names: &mut [String], ignore_case: boo
     let mut entries = names
         .iter()
         .map(|name| {
+            let sort_key = if ignore_case {
+                name.to_lowercase()
+            } else {
+                name.clone()
+            };
             (
                 name.clone(),
                 app.get_file_type(directory, name),
-                ignore_case.then(|| name.to_lowercase()),
+                sort_key,
             )
         })
         .collect::<Vec<_>>();
-    entries.sort_by(|a, b| match (&a.1, &b.1) {
-        (FileType::Directory, FileType::File) => std::cmp::Ordering::Less,
-        (FileType::File, FileType::Directory) => std::cmp::Ordering::Greater,
-        _ if ignore_case => a.2.cmp(&b.2),
-        _ => a.0.cmp(&b.0),
+
+    entries.sort_by(|a, b| {
+        type_rank(&a.1)
+            .cmp(&type_rank(&b.1))
+            .then_with(|| a.2.cmp(&b.2))
+            .then_with(|| a.0.cmp(&b.0))
     });
 
-    for (name, (sorted_name, _, _)) in names.iter_mut().zip(entries) {
-        *name = sorted_name;
+    for (slot, (sorted_name, _, _)) in names.iter_mut().zip(entries) {
+        *slot = sorted_name;
+    }
+}
+
+fn type_rank(ft: &FileType) -> u8 {
+    match ft {
+        FileType::Directory => 0,
+        FileType::File => 1,
+        FileType::Unknown => 2,
     }
 }
 
@@ -491,14 +505,14 @@ pub fn get_file_preview_content<'a>(
 
     if file_type == FileType::Directory {
         files.sort_by(|a: &Line, b: &Line| {
-            let file_type_a = app.get_file_type(&child_view_dir, a.to_string().as_str());
-            let file_type_b = app.get_file_type(&child_view_dir, b.to_string().as_str());
+            let a_name = a.to_string();
+            let b_name = b.to_string();
+            let a_type = app.get_file_type(&child_view_dir, a_name.as_str());
+            let b_type = app.get_file_type(&child_view_dir, b_name.as_str());
 
-            match (file_type_a, file_type_b) {
-                (FileType::Directory, FileType::File) => std::cmp::Ordering::Less,
-                (FileType::File, FileType::Directory) => std::cmp::Ordering::Greater,
-                _ => a.to_string().cmp(&b.to_string()),
-            }
+            type_rank(&a_type)
+                .cmp(&type_rank(&b_type))
+                .then_with(|| a_name.cmp(&b_name))
         });
     }
 
