@@ -15,6 +15,7 @@ use ratatui::{
 };
 use std::{
     collections::HashMap,
+    ops::Range,
     path::Path,
     sync::{Mutex, OnceLock},
     time::UNIX_EPOCH,
@@ -137,6 +138,11 @@ pub fn get_body<'a>(app: &'a mut App, child_max_lines: usize) -> BodyLayout<'a> 
         .unwrap_or(&current_view_path);
 
     let hovered_file = app.get_hovered_filename();
+    let search_query = if matches!(app.mode, Mode::Search) {
+        &app.search_input
+    } else {
+        &app.last_search
+    };
 
     let middle = Paragraph::new(
         app.buffer_content
@@ -155,11 +161,10 @@ pub fn get_body<'a>(app: &'a mut App, child_max_lines: usize) -> BodyLayout<'a> 
                     .map(|pane| pane.width.saturating_sub(2) as usize)
                     .unwrap_or_else(|| line.chars().count());
                 let padding = " ".repeat(row_width.saturating_sub(line.chars().count()));
+                let mut spans = get_search_highlight_spans(line, search_query, bg, fg);
+                spans.push(Span::styled(padding, Style::default().bg(bg)));
 
-                Line::from(vec![
-                    Span::styled(line.to_string(), Style::default().bg(bg).fg(fg)),
-                    Span::styled(padding, Style::default().bg(bg)),
-                ])
+                Line::from(spans)
             })
             .collect::<Vec<_>>(),
     )
@@ -203,6 +208,75 @@ pub fn get_body<'a>(app: &'a mut App, child_max_lines: usize) -> BodyLayout<'a> 
         current: middle,
         child: right,
     }
+}
+
+fn get_search_highlight_spans<'a>(
+    line: &str,
+    query: &str,
+    bg: Color,
+    fg: Color,
+) -> Vec<Span<'a>> {
+    let base_style = Style::default().bg(bg).fg(fg);
+    if query.is_empty() {
+        return vec![Span::styled(line.to_string(), base_style)];
+    }
+
+    let highlight_style = Style::default().bg(Color::Yellow).fg(Color::Black);
+    let mut spans = Vec::new();
+    let mut search_from = 0;
+
+    while search_from < line.len() {
+        let Some(range) = case_insensitive_match_range(&line[search_from..], query) else {
+            break;
+        };
+        let start = search_from + range.start;
+        let end = search_from + range.end;
+
+        if start > search_from {
+            spans.push(Span::styled(
+                line[search_from..start].to_string(),
+                base_style,
+            ));
+        }
+        spans.push(Span::styled(line[start..end].to_string(), highlight_style));
+        search_from = end;
+    }
+
+    if search_from < line.len() {
+        spans.push(Span::styled(line[search_from..].to_string(), base_style));
+    }
+    if spans.is_empty() {
+        spans.push(Span::styled(line.to_string(), base_style));
+    }
+
+    spans
+}
+
+fn case_insensitive_match_range(text: &str, query: &str) -> Option<Range<usize>> {
+    let lowered_query = query.to_lowercase();
+    let query_chars = lowered_query.chars().collect::<Vec<_>>();
+    if query_chars.is_empty() {
+        return None;
+    }
+
+    let mut lowered_text = Vec::new();
+    for (start, ch) in text.char_indices() {
+        let end = start + ch.len_utf8();
+        lowered_text.extend(ch.to_lowercase().map(|lowered| (lowered, start, end)));
+    }
+
+    lowered_text
+        .windows(query_chars.len())
+        .position(|window| {
+            window
+                .iter()
+                .map(|(ch, _, _)| *ch)
+                .eq(query_chars.iter().copied())
+        })
+        .map(|start| {
+            let end = start + query_chars.len() - 1;
+            lowered_text[start].1..lowered_text[end].2
+        })
 }
 
 fn refresh_current_buffer(app: &mut App, files: &[String]) {
