@@ -70,6 +70,8 @@ pub struct App<'a> {
 
     pub cursor: Cursor,
     pub command_buffer: InputBuffer,
+    pub search_input: String,
+    pub last_search: String,
 
     pub need_confirmation: bool,
     pub rerender_dir_content: bool,
@@ -103,6 +105,8 @@ impl Default for App<'_> {
 
             cursor: Cursor::default(),
             command_buffer: InputBuffer::new(),
+            search_input: String::new(),
+            last_search: String::new(),
             need_confirmation: false,
             rerender_dir_content: true,
             hostname: format!("{}@{}", system::whoami().trim(), system::hostname().trim()),
@@ -586,6 +590,91 @@ impl App<'_> {
             Ok(metadata) if metadata.is_dir() => FileType::Directory,
             _ => FileType::Unknown,
         }
+    }
+
+    /// Select the next filename containing `query` in the current directory.
+    /// Search is case-insensitive and wraps at either end of the listing.
+    pub fn search_current_directory(&mut self, query: &str, backwards: bool) -> bool {
+        if query.is_empty() {
+            return false;
+        }
+
+        let current_path = self.path.get_absolute_path();
+        let Some(view) = self.buffer_storage.get_view(&current_path) else {
+            return false;
+        };
+
+        let mut files = view
+            .files
+            .values()
+            // New rows do not occupy a slot in the on-disk listing yet.
+            .filter(|file| file.state != State::Created)
+            .cloned()
+            .collect::<Vec<_>>();
+        files.sort_by(|a, b| {
+            let type_order = match (
+                a.file_type == FileType::Directory,
+                b.file_type == FileType::Directory,
+            ) {
+                (true, false) => std::cmp::Ordering::Less,
+                (false, true) => std::cmp::Ordering::Greater,
+                _ => std::cmp::Ordering::Equal,
+            };
+
+            type_order
+                // A rename keeps the entry's original position in the listing.
+                .then_with(|| {
+                    a.original_name
+                        .to_lowercase()
+                        .cmp(&b.original_name.to_lowercase())
+                })
+                .then_with(|| a.original_name.cmp(&b.original_name))
+        });
+
+        let count = files.len();
+        if count == 0 {
+            return false;
+        }
+
+        let query = query.to_lowercase();
+        let current_index = (self.cursor.y > 1).then(|| {
+            self.offset_top
+                .saturating_add(usize::from(self.cursor.y - 2))
+                .min(count - 1)
+        });
+        let start = current_index.unwrap_or(if backwards { 0 } else { count - 1 });
+
+        let found = (1..=count).find_map(|step| {
+            let index = if backwards {
+                (start + count - step % count) % count
+            } else {
+                (start + step) % count
+            };
+            (files[index].state != State::Deleted
+                && files[index].name.to_lowercase().contains(&query))
+                .then_some(index)
+        });
+        let Some(index) = found else {
+            return false;
+        };
+
+        let visible_rows = self
+            .layout
+            .get(1)
+            .map(|pane| pane.height.saturating_sub(2) as usize)
+            .unwrap_or(1)
+            .max(1);
+        if index < self.offset_top || index >= self.offset_top.saturating_add(visible_rows) {
+            self.offset_top = index;
+            self.cursor.y = 2;
+        } else {
+            self.cursor.y = (index - self.offset_top + 2)
+                .try_into()
+                .unwrap_or(u16::MAX);
+        }
+        self.cursor.reset_x();
+        self.rerender_dir_content = true;
+        true
     }
 }
 

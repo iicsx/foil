@@ -1,6 +1,6 @@
 use crate::app::{App, AppResult, Mode};
 use crate::utils::{buffer_storage::State, motion_handler::handler as motion_handler, system};
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::path::Path;
 
 /// Handles the key events and updates the state of [`App`].
@@ -49,7 +49,18 @@ fn handle_normal_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         KeyCode::Char('o') => motion_handler::o(app),
         KeyCode::Char('O') => motion_handler::O(app),
         KeyCode::Char(':') => app.set_mode(Mode::Command)?,
-        KeyCode::Char('/') => app.set_mode(Mode::Search)?,
+        KeyCode::Char('/') => {
+            app.search_input.clear();
+            app.set_mode(Mode::Search)?;
+        }
+        KeyCode::Char('n') => {
+            let query = app.last_search.clone();
+            app.search_current_directory(&query, false);
+        }
+        KeyCode::Char('N') => {
+            let query = app.last_search.clone();
+            app.search_current_directory(&query, true);
+        }
         KeyCode::Char('v') => app.set_mode(Mode::Visual)?,
         KeyCode::Char('V') => app.set_mode(Mode::VisualLine)?,
         KeyCode::Char('s') => motion_handler::s(app),
@@ -260,6 +271,32 @@ fn handle_pending_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
 }
 
 fn handle_search_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
+    match key_event.code {
+        KeyCode::Esc => {
+            app.search_input.clear();
+            app.set_mode(Mode::Normal)?;
+        }
+        KeyCode::Enter => {
+            if !app.search_input.is_empty() {
+                app.last_search = app.search_input.clone();
+                let query = app.last_search.clone();
+                app.search_current_directory(&query, false);
+            }
+            app.search_input.clear();
+            app.set_mode(Mode::Normal)?;
+        }
+        KeyCode::Backspace => {
+            app.search_input.pop();
+        }
+        KeyCode::Char(ch) if key_event.modifiers.contains(KeyModifiers::CONTROL) => {
+            if ch == 'u' {
+                app.search_input.clear();
+            }
+        }
+        KeyCode::Char(ch) => app.search_input.push(ch),
+        _ => {}
+    };
+
     Ok(())
 }
 

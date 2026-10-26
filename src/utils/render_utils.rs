@@ -49,6 +49,7 @@ pub fn get_footer<'a>(block: &Block<'a>, app: &App) -> Paragraph<'a> {
         .unwrap_or_else(|_| format!("?????????? - - - - {}", filename));
     let mode = match app.mode {
         Mode::Command => format!(":{}", app.command.as_deref().unwrap_or("")),
+        Mode::Search => format!("/{}", app.search_input),
         _ => format!("{}", app.mode),
     };
     let spans = Line::from(vec![

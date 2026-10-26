@@ -52,6 +52,8 @@ The current directory is shown in the middle pane. The first row, `../`, navigat
 | --- | --- |
 | `h` / `j` / `k` / `l`, or arrow keys | Move the cursor |
 | `gg` / `G` | Go to the first / last row |
+| `/text`, then `Enter` | Search filenames in the current directory, wrapping at the end |
+| `n` / `N` | Find the next / previous match for the last search |
 | `w` / `e` / `b` | Move by word |
 | `0` / `$` | Move to the start / end of a filename |
 | `i`, `a`, `I`, `A` | Edit the selected filename |
