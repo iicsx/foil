@@ -4,6 +4,9 @@ Foil is a heavily opinionated terminal file manager inspired by [oil.nvim](https
 
 Foil is an early-stage project. The interface, keybindings and behaviour will most likely experience some level of change.
 
+[Example Screenshot](assets/example_full_view.png)
+[Example Screenshot Confirmation](assets/example_confirmation.png)
+
 ## Features
 
 - Classic TUI file manager three-pane view of the parent directory, current directory, and a preview of the selected entry.
