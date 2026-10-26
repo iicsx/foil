@@ -209,7 +209,7 @@ pub mod handler {
         let x = app.cursor.x as usize;
         let new_x = app.get_end_x(&line, x, true);
 
-        if new_x - 1 == app.get_line_length(app.cursor.y - 1).unwrap_or(0)
+        if new_x > app.get_line_length(app.cursor.y - 1).unwrap_or(0)
             && (usize::from(app.cursor.y) < app.get_line_count())
         {
             app.cursor.down();
@@ -217,6 +217,38 @@ pub mod handler {
         } else {
             app.cursor.move_word(&line, new_x);
         }
+    }
+
+    pub fn e(app: &mut App) {
+        let line = app.current_line().to_string();
+        let x = app.cursor.x as usize;
+
+        let chars = line.chars().collect::<Vec<_>>();
+        if chars
+            .get(x.saturating_sub(1))
+            .is_some_and(|ch| ch.is_alphanumeric())
+            && chars.get(x).is_some_and(|ch| !ch.is_alphanumeric())
+        {
+            app.cursor.move_word(&line, x + 1);
+            return;
+        }
+
+        let new_x = app.get_end_x(&line, x, false);
+        if new_x == x && usize::from(app.cursor.y) < app.get_line_count() {
+            app.cursor.down();
+            app.cursor.reset_x();
+            return;
+        }
+
+        if new_x > line.chars().count() {
+            if usize::from(app.cursor.y) < app.get_line_count() {
+                app.cursor.down();
+                app.cursor.reset_x();
+            }
+            return;
+        }
+
+        app.cursor.move_word(&line, new_x);
     }
 
     pub fn b(app: &mut App) {

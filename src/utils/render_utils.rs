@@ -106,11 +106,17 @@ pub fn get_body<'a>(app: &'a mut App, child_max_lines: usize) -> BodyLayout<'a> 
             .map(|line| {
                 let (bg, fg) =
                     get_line_colors(app, &parent_dir.get_absolute_path(), line, &current_folder);
+                let row_width = app
+                    .layout
+                    .first()
+                    .map(|pane| pane.width.saturating_sub(2) as usize)
+                    .unwrap_or_else(|| line.chars().count());
+                let padding = " ".repeat(row_width.saturating_sub(line.chars().count()));
 
-                Line::from(vec![Span::styled(
-                    line.clone(),
-                    Style::default().bg(bg).fg(fg),
-                )])
+                Line::from(vec![
+                    Span::styled(line.clone(), Style::default().bg(bg).fg(fg)),
+                    Span::styled(padding, Style::default().bg(bg)),
+                ])
             })
             .collect::<Vec<_>>(),
     )
@@ -142,11 +148,17 @@ pub fn get_body<'a>(app: &'a mut App, child_max_lines: usize) -> BodyLayout<'a> 
                     line,
                     row == app.cursor.y.saturating_sub(1) as usize,
                 );
+                let row_width = app
+                    .layout
+                    .get(1)
+                    .map(|pane| pane.width.saturating_sub(2) as usize)
+                    .unwrap_or_else(|| line.chars().count());
+                let padding = " ".repeat(row_width.saturating_sub(line.chars().count()));
 
-                Line::from(Span::styled(
-                    line.to_string(),
-                    Style::default().bg(bg).fg(fg),
-                ))
+                Line::from(vec![
+                    Span::styled(line.to_string(), Style::default().bg(bg).fg(fg)),
+                    Span::styled(padding, Style::default().bg(bg)),
+                ])
             })
             .collect::<Vec<_>>(),
     )
@@ -368,7 +380,7 @@ fn get_line_colors_for_hover(
     match app.get_file_type(current_view, line.trim()) {
         FileType::File if is_hovered => (Color::White, Color::Black),
         FileType::File => (Color::default(), Color::LightGreen),
-        FileType::Directory if is_hovered => (Color::Yellow, Color::Black),
+        FileType::Directory if is_hovered => (Color::Blue, Color::Black),
         FileType::Directory => (Color::default(), Color::LightBlue),
         FileType::Unknown => (Color::default(), Color::default()),
     }

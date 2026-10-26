@@ -9,7 +9,12 @@ use crate::utils::{
 };
 use crossterm::cursor::SetCursorStyle;
 use ratatui::{prelude::Rect, widgets::Paragraph};
-use std::{error, fmt, fs, path::{Path, PathBuf}, rc::Rc, result::Result};
+use std::{
+    error, fmt, fs,
+    path::{Path, PathBuf},
+    rc::Rc,
+    result::Result,
+};
 
 #[derive(Debug, Default, Clone)]
 pub enum Mode {
@@ -21,6 +26,7 @@ pub enum Mode {
     Insert,
     Command,
     Pending,
+    Search,
 }
 
 impl fmt::Display for Mode {
@@ -33,6 +39,7 @@ impl fmt::Display for Mode {
             Self::VisualBlock => "V-BLOCK",
             Self::VisualLine => "V-LINE",
             Self::Pending => "PENDING",
+            Self::Search => "SEARCH",
         };
 
         write!(f, "{}", string)
@@ -156,7 +163,7 @@ impl App<'_> {
                 view.add_file(new_name, FileType::File);
             }
         } else {
-            view.set_name(old_name, new_name);
+            view.set_name_for_edit(old_name, new_name);
         }
     }
 
@@ -309,12 +316,24 @@ impl App<'_> {
 
     pub fn get_end_x(&self, s: &str, start: usize, inclusive: bool) -> usize {
         let chars = s.chars().collect::<Vec<_>>();
-        let current_char = chars.get(start.max(1) - 1).copied().unwrap_or('.');
-        if !current_char.is_alphanumeric() {
-            return start + 1;
+        if start >= chars.len() {
+            return chars.len();
         }
 
-        let mut end = start;
+        let current_char = chars.get(start.max(1) - 1).copied().unwrap_or('.');
+        if !current_char.is_alphanumeric() {
+            let mut next_start = start + 1;
+            while chars
+                .get(next_start)
+                .is_some_and(|ch| !ch.is_alphanumeric())
+            {
+                next_start += 1;
+            }
+
+            return next_start;
+        }
+
+        let mut end = start + 1;
         while chars.get(end).is_some_and(|ch| ch.is_alphanumeric()) {
             end += 1;
         }
@@ -340,25 +359,25 @@ impl App<'_> {
         end
     }
 
-    pub fn delete_word(&mut self, x: u16, y: u16) {
+    pub fn delete_word(&mut self, x: u16, y: u16) -> String {
         let mut lines: Vec<String> = self.buffer_content.lines().map(String::from).collect();
 
         if y as usize >= lines.len() {
-            return;
+            return String::new();
         }
 
         let line = &mut lines[y as usize];
 
         if x as usize >= line.chars().count() || line.is_empty() {
-            return;
+            return String::new();
         }
 
         let end = self.get_end_x(line, x as usize, false);
         let Some(start_byte) = char_to_byte_index(line, x as usize) else {
-            return;
+            return String::new();
         };
         let Some(end_byte) = char_to_byte_index(line, end) else {
-            return;
+            return String::new();
         };
 
         let old_name = line.clone();
@@ -366,6 +385,8 @@ impl App<'_> {
         let new_name = line.clone();
         self.set_buffer_lines(lines);
         self.sync_filename_edit(&old_name, &new_name, y as usize);
+
+        old_name[start_byte..end_byte].to_string()
     }
 
     pub fn merge_lines(&self, y1: usize, y2: usize) -> Result<String, std::io::Error> {
@@ -405,6 +426,11 @@ impl App<'_> {
             .lines()
             .nth(self.cursor.y.saturating_sub(1) as usize)
             .unwrap_or("")
+    }
+
+    pub fn is_at_end_of_line(&self) -> bool {
+        let line_length = self.get_line_length(self.cursor.y - 1).unwrap_or(0);
+        self.cursor.x as usize >= line_length
     }
 
     pub fn get_line_length(&self, y: u16) -> Result<usize, std::io::Error> {
@@ -496,6 +522,10 @@ impl App<'_> {
     pub fn redo(&mut self) {
         if let Some(redo) = self.undo_stack.redo() {
             self.buffer_content = redo;
+            if let Some((x, y)) = self.undo_stack.get_pointers() {
+                self.cursor.x = x as u16;
+                self.cursor.y = y as u16;
+            }
             self.sync_visible_file_names();
         }
     }

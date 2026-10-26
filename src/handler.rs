@@ -20,6 +20,7 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         Mode::VisualBlock => handle_visual_block_mode(key_event, app),
         Mode::VisualLine => handle_visual_line_mode(key_event, app),
         Mode::Pending => handle_pending_mode(key_event, app),
+        Mode::Search => handle_search_mode(key_event, app),
     }
 }
 
@@ -48,6 +49,7 @@ fn handle_normal_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         KeyCode::Char('o') => motion_handler::o(app),
         KeyCode::Char('O') => motion_handler::O(app),
         KeyCode::Char(':') => app.set_mode(Mode::Command)?,
+        KeyCode::Char('/') => app.set_mode(Mode::Search)?,
         KeyCode::Char('v') => app.set_mode(Mode::Visual)?,
         KeyCode::Char('V') => app.set_mode(Mode::VisualLine)?,
         KeyCode::Char('s') => motion_handler::s(app),
@@ -65,6 +67,7 @@ fn handle_normal_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         KeyCode::Char('$') => motion_handler::dollar_sign(app),
         KeyCode::Char('G') => motion_handler::G(app),
         KeyCode::Char('w') => motion_handler::w(app),
+        KeyCode::Char('e') => motion_handler::e(app),
         KeyCode::Char('b') => motion_handler::b(app),
         // other
         KeyCode::Char('x') => motion_handler::x(app),
@@ -256,6 +259,10 @@ fn handle_pending_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
     Ok(())
 }
 
+fn handle_search_mode(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
+    Ok(())
+}
+
 fn handle_compound_inputs(
     key_event: KeyEvent,
     app: &mut App,
@@ -311,6 +318,7 @@ fn execute_compound_command(command: &str, app: &mut App) {
         "dw" => motion_handler::dw(app),
         "cw" => motion_handler::cw(app),
         "yy" => motion_handler::yy(app),
+        "yw" => motion_handler::yw(app),
         "yiw" => motion_handler::yiw(app),
         "ciw" => motion_handler::ciw(app),
         "diw" => motion_handler::diw(app),
@@ -386,7 +394,12 @@ fn rename_pending_files(files: Vec<crate::utils::buffer_storage::FileEntry>) -> 
 
 fn create_pending_files(files: Vec<crate::utils::buffer_storage::FileEntry>) -> AppResult<()> {
     for file in files {
-        system::create_file(&file.original_dir, file.name.trim().to_string())?;
+        let destination = Path::new(&file.dir).join(file.name.trim());
+        if let Some((source_dir, source_name)) = file.copy_source {
+            std::fs::copy(Path::new(&source_dir).join(source_name), destination)?;
+        } else {
+            system::create_file(&file.original_dir, file.name.trim().to_string())?;
+        }
     }
     Ok(())
 }
